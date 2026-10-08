@@ -6,7 +6,7 @@ const needle = '$u(e,{onTogglePane:ue';
 const registration = `e1RegisterTabs(e,{
  chat:s,
  terminal:ae?()=>{if(p){const id=ss.getState().addTab(n.id);T(n.id,id)}d("terminal")}:null,
- browser:te?()=>{if(v)we();else d("preview")}:null,
+ browser:te?()=>{d("preview");if(v)we()}:null,
  files:re?()=>{d("file");M("filter")}:null,
  changes:N?()=>d("diff"):null
 }),`;

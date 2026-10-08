@@ -57,10 +57,16 @@ for (const file of walk(original)) {
     assert.equal(b.toString(),require('./patch-tab-actions.cjs').patch(a.toString()));
     patchedJavaScript.push({file,purpose:'Expose native pane actions to browser start',sha256:hash(b)});
   } else if (file === require('./patch-browser-start.cjs').file) {
-    assert.equal(b.toString(),require('./patch-browser-start.cjs').patch(a.toString()));
+    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchBrowser(require('./patch-browser-start.cjs').patch(a.toString())));
     patchedJavaScript.push({file,purpose:'Browser start layout with native actions and same-tab navigation',sha256:hash(b)});
+  } else if (file === require('./patch-mixed-tabs.cjs').tabsFile) {
+    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchTabs(a.toString()));
+    patchedJavaScript.push({file,purpose:'Share native browser, file and terminal tabs in one group',sha256:hash(b)});
+  } else if (file === require('./patch-mixed-tabs.cjs').anchorFile) {
+    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchAnchor(a.toString()));
+    patchedJavaScript.push({file,purpose:'Hide native browser surfaces when switching tool tabs',sha256:hash(b)});
   } else if (file === require('./patch-title-renderer.cjs').file) {
-    assert.equal(b.toString(), require('./patch-title-renderer.cjs').patch(a.toString()), 'Unexpected split-pane title changes');
+    assert.equal(b.toString(), require('./patch-mixed-tabs.cjs').patch(require('./patch-title-renderer.cjs').patch(a.toString())), 'Unexpected title or mixed tab changes');
     patchedJavaScript.push({ file, purpose: 'Keep split-pane title pinning consistent with display branding', sha256: hash(b) });
   } else {
     assert.ok(a.equals(b), file + " differs from captured renderer");
@@ -95,7 +101,7 @@ assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-workflows.js'))
   .equals(fs.readFileSync(path.join(base, 'src/workflow-picker.js'))));
 assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-speed.js')).equals(fs.readFileSync(path.join(base, 'src/speed-picker.js'))));
 assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-preferences-dialog.js')).equals(fs.readFileSync(path.join(base, 'src/native-preferences-dialog.js'))));
-for (const [source,target] of [['model-list.js','e1-model-list.js'],['native-model-browser.js','e1-model-browser.js'],['browser-start.js','e1-browser-start.js']])
+for (const [source,target] of [['mixed-tabs.js','e1-mixed-tabs.js'],['mixed-tab-state.js','e1-mixed-tab-state.js'],['mixed-tab-context.js','e1-mixed-tab-context.js'],['model-list.js','e1-model-list.js'],['native-model-browser.js','e1-model-browser.js'],['browser-start.js','e1-browser-start.js']])
   assert.ok(fs.readFileSync(path.join(installed,'assets/v1',target)).equals(fs.readFileSync(path.join(base,'src',source))));
 const brandData = JSON.parse(fs.readFileSync(path.join(installed, 'assets/v1/aster-branding.json')));
 assert.equal(brandData.sourceSha256, hash(fs.readFileSync(path.join(base, 'assets/aster-source.svg'))));
