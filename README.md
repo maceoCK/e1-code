@@ -11,6 +11,7 @@ This repository contains E1 Code's integration layer, gateway, workspace source,
 - **Per-chat controls:** Plan/API indicators with account details, preferred models and effort for native workflow children, and confirmed paid-API Fast/Ultrafast routing where supported.
 - **Model picker:** provider groups, newest versions first, and search by model, version, provider, or connection. Older generations and duplicate dated snapshots are hidden by default; enable **Show legacy models** under **Models & connections** or in the picker. Existing chat and subagent selections remain available. This preference does not change routing or account access.
 - **Workspace components:** chats, Pages, file tools, PTY terminals, browser panels, child chats, and schedules. Native browser hosting requires Electron; schedules run while the host is open.
+- **Browser start:** Codex-style native tool grid and locally learned suggested sites, with same-tab navigation and dismiss/undo. Existing dev-server controls remain available.
 - **Desktop adapters:** a green theme, E1 branding, logo animation mapping, and narrow model/workflow hooks for one compatible local Claude Desktop capture.
 
 These components have different integration maturity. This is not a claim of complete Claude Desktop feature parity. Model access, plan sharing, billing, speed modes, and CLI behavior depend on the provider and account. Unsupported premium modes fail rather than silently selecting another model.

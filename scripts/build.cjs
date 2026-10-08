@@ -60,6 +60,8 @@ const fs = require("node:fs"),
   require('./patch-workflow-renderer.cjs').install(ionOriginal, ion);
   require('./patch-title-renderer.cjs').install(ionOriginal, ion);
   require('./patch-model-browser.cjs').install(ionOriginal, ion);
+  require('./patch-tab-actions.cjs').install(ionOriginal, ion);
+  require('./patch-browser-start.cjs').install(ionOriginal, ion);
   const brand = await require('./build-branding.cjs')(base, path.join(ion, 'assets/v1'), capture);
   fs.copyFileSync(
     path.join(base, "src/recovered-theme.css"),
@@ -68,6 +70,7 @@ const fs = require("node:fs"),
   fs.writeFileSync(path.join(ion, "assets/v1/aster-logo.svg"), svg);
   fs.copyFileSync(path.join(base, 'src/billing-indicator.js'), path.join(ion, 'assets/v1/e1-billing.js'));
   fs.copyFileSync(path.join(base, 'src/native-preferences-dialog.js'), path.join(ion, 'assets/v1/e1-preferences-dialog.js'));
+  fs.copyFileSync(path.join(base, 'src/browser-start.js'), path.join(ion, 'assets/v1/e1-browser-start.js'));
   fs.copyFileSync(path.join(base, 'src/model-list.js'), path.join(ion, 'assets/v1/e1-model-list.js'));
   fs.copyFileSync(path.join(base, 'src/native-model-browser.js'), path.join(ion, 'assets/v1/e1-model-browser.js'));
   fs.copyFileSync(path.join(base, 'src/workflow-picker.js'), path.join(ion, 'assets/v1/e1-workflows.js'));
