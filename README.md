@@ -55,6 +55,8 @@ The public checkout uses system fonts. Browser dependencies are generated from l
 | Settings and development chat UI | `src/server.cjs`, `src/ui/settings/`, `src/ui/` |
 | Automated fixtures | `test/` |
 
+Native dialog integration tests additionally use a compatible local capture via `E1_CAPTURE_ROOT` (the directory containing `full/original/Claude.app`). Those tests are reported as skipped when no capture is available; recovered assets are never copied into the repository.
+
 `npm test` uses local fixtures and mocked provider responses. It does not verify access to a real subscription, charge an API account, or prove native desktop UI parity. Manual scripts with names such as `*-live`, `*-smoke`, `native-*`, and `record-*` may use locally configured accounts, execute tools, make billable requests, and produce private evidence. They are not run by CI and some require the original local development layout.
 
 A GitHub Actions template is saved at `docs/ci/source-checks.yml`. Automated CI is not enabled in this snapshot. A maintainer with workflow-write access can move it to `.github/workflows/source-checks.yml` to run fixture tests, publication checks, and Gitleaks on pushes and pull requests.

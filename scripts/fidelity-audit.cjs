@@ -39,7 +39,7 @@ for (const file of walk(original)) {
       )
       .replace(
         "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
+        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
       );
     assert.equal(
       b.toString(),
@@ -85,6 +85,7 @@ assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-billing.js'))
 assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-workflows.js'))
   .equals(fs.readFileSync(path.join(base, 'src/workflow-picker.js'))));
 assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-speed.js')).equals(fs.readFileSync(path.join(base, 'src/speed-picker.js'))));
+assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-preferences-dialog.js')).equals(fs.readFileSync(path.join(base, 'src/native-preferences-dialog.js'))));
 const brandData = JSON.parse(fs.readFileSync(path.join(installed, 'assets/v1/aster-branding.json')));
 assert.equal(brandData.sourceSha256, hash(fs.readFileSync(path.join(base, 'assets/aster-source.svg'))));
 assert.ok(declarations.length > 0);

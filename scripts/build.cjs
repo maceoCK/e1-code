@@ -66,6 +66,7 @@ const fs = require("node:fs"),
   );
   fs.writeFileSync(path.join(ion, "assets/v1/aster-logo.svg"), svg);
   fs.copyFileSync(path.join(base, 'src/billing-indicator.js'), path.join(ion, 'assets/v1/e1-billing.js'));
+  fs.copyFileSync(path.join(base, 'src/native-preferences-dialog.js'), path.join(ion, 'assets/v1/e1-preferences-dialog.js'));
   fs.copyFileSync(path.join(base, 'src/workflow-picker.js'), path.join(ion, 'assets/v1/e1-workflows.js'));
   fs.copyFileSync(path.join(base, 'src/speed-picker.js'), path.join(ion, 'assets/v1/e1-speed.js'));
   // Start from captured HTML every time. The targeted workflow and title
@@ -81,7 +82,7 @@ const fs = require("node:fs"),
       )
       .replace(
         "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
+        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
       );
     fs.writeFileSync(path.join(ion, file), html);
   }

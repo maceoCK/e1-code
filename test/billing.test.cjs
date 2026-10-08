@@ -52,6 +52,15 @@ test('model and sidebar billing remain scoped across split panes, switches and r
       <div class="dframe-pane"><div data-session-id="local_${b}"><button id="model-b" data-testid="epitaxy-cds-model-selector" aria-label="Model: Claude Max · Sonnet">Sonnet</button></div></div>`);
     await page.addScriptTag({ path: path.join(__dirname, '../src/recovered-branding.js') });
     await page.addScriptTag({ path: path.join(__dirname, '../src/billing-indicator.js') });
+    await page.evaluate(() => {
+      const state = { preferences: { chats: {}, models: {} }, models: [
+        {id:'api',name:'OpenAI · GPT',efforts:['high'],modes:['standard'],connections:[]},
+        {id:'sub',name:'Claude Max · Sonnet',efforts:['high'],modes:['standard'],connections:[]},
+      ] };
+      window.e1WorkflowPreferences = window.e1SpeedPreferences = { read:async()=>state };
+    });
+    await page.addScriptTag({ path: path.join(__dirname, '../src/workflow-picker.js') });
+    await page.addScriptTag({ path: path.join(__dirname, '../src/speed-picker.js') });
     const state = { version: 2, catalog: [ { id: 'api', name: 'OpenAI · GPT', prediction: { billing: 'api', label: 'OpenAI' } }, { id: 'sub', name: 'Claude Max · Sonnet', prediction: { billing: 'subscription', label: 'Claude Max' } } ], chats: [ { chatId: `local_${a}`, billing: 'api', label: 'OpenAI', selectedModel: 'api', running: true }, { chatId: `local_${b}`, billing: 'subscription', label: 'Claude Max', selectedModel: 'sub', running: true } ] };
     const send = () => page.evaluate(s => window.dispatchEvent(new CustomEvent('e1-billing-status', { detail: s })), state);
     await send(); await page.waitForFunction(() => document.querySelectorAll('.e1-billing-chip').length === 4);
@@ -62,8 +71,8 @@ test('model and sidebar billing remain scoped across split panes, switches and r
     assert.equal(await page.locator('#e1-api-billing-border').count(), 0);
     Object.assign(state.chats[1],{planName:'Claude Max',accountLabel:'Personal Max',accountEmail:'first@example.test',model:'claude-sonnet-5-5'});
     await send();
-    await page.waitForFunction(()=>document.querySelector('#model-b + .e1-billing-chip')?.getAttribute('aria-label').includes('first@example.test'));
-    const planChip=page.locator('#model-b + .e1-billing-chip'), tooltip=page.getByRole('tooltip');
+    await page.waitForFunction(()=>document.querySelector('#model-b').closest('.dframe-pane').querySelector('.e1-billing-chip')?.getAttribute('aria-label').includes('first@example.test'));
+    const planChip=page.locator('.dframe-pane').last().locator('.e1-billing-chip'), tooltip=page.getByRole('tooltip');
     await planChip.hover();
     assert.match(await tooltip.innerText(),/Claude Max\nUsing now\nAccount: Personal Max\nfirst@example.test\nModel: claude-sonnet-5-5/);
     Object.assign(state.chats[1],{accountLabel:'Second Max',accountEmail:'second@example.test',fallback:true});
@@ -84,6 +93,17 @@ test('model and sidebar billing remain scoped across split panes, switches and r
     await page.waitForFunction(() => !document.querySelector('#model-a').hasAttribute('data-e1-billing'));
     await page.locator('#row-b').evaluate(el => { el.outerHTML = '<button id="row-b" data-row-main-button>Plan chat remounted</button>'; });
     await page.waitForFunction(() => document.querySelector('#row-b .e1-billing-chip')?.textContent === 'Plan');
+    // All adapters share this DOM. Remount both pane and row controls while
+    // routing events arrive, then ensure their observers become completely idle.
+    for (let i = 0; i < 12; i++) {
+      await page.locator('#model-b').evaluate(el => { el.outerHTML = el.outerHTML; });
+      await send();
+      await page.waitForFunction(() => document.querySelectorAll('.e1-speed-button').length === 1 && document.querySelectorAll('.e1-subagents-button:not(.e1-speed-button)').length === 1 && document.querySelector('#model-b')?.dataset.e1Billing === 'subscription');
+      await page.waitForTimeout(100);
+    }
+    await page.locator('.dframe-pane').last().locator('.e1-billing-chip').hover();
+    await send();
+    await page.waitForTimeout(250);
     await page.evaluate(() => { window.mutations = 0; new MutationObserver(r => window.mutations += r.length).observe(document, { subtree: true, childList: true, attributes: true, characterData: true }); });
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.equal(await page.evaluate(() => window.mutations), 0);
