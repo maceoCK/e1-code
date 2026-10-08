@@ -10,6 +10,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
     token = crypto.randomBytes(32).toString("hex"),
     sessions = new Set(),
     active = new Map();
+  const modelBrowser = new (require('./model-browser-preferences.cjs').ModelBrowserPreferences)(dataDir);
   store.subscriptions = subscriptions; store.claudeAccounts = claudeAccounts;
   const workspace = settingsOnly ? null : (workspaceAgent || (workspaceGateway ? new (require('./workspace-agent.cjs').WorkspaceAgent)({ directory: path.join(dataDir, 'chat-workspace'), gateway: workspaceGateway }) : null));
   const eventClients = new Set();
@@ -67,7 +68,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
           return json(res, { error: "Session expired. Reopen E1 Code." }, 401);
         if (req.method !== "GET" && req.headers.origin !== origin)
           return json(res, { error: "Origin rejected." }, 403);
-        if (settingsOnly && !["/api/state", "/api/provider", "/api/models", "/api/preferences", "/api/preview", '/api/subscription/login', '/api/subscription/cancel', '/api/subscription/reopen', '/api/subscription/acknowledge', '/api/subscription/logout', '/api/claude/existing', '/api/claude/login', '/api/claude/refresh', '/api/claude/reopen', '/api/claude/cancel', '/api/claude/disconnect', '/api/routing', '/api/routing/reset'].includes(url.pathname))
+        if (settingsOnly && !["/api/state", "/api/provider", "/api/models", "/api/model-browser", "/api/preferences", "/api/preview", '/api/subscription/login', '/api/subscription/cancel', '/api/subscription/reopen', '/api/subscription/acknowledge', '/api/subscription/logout', '/api/claude/existing', '/api/claude/login', '/api/claude/refresh', '/api/claude/reopen', '/api/claude/cancel', '/api/claude/disconnect', '/api/routing', '/api/routing/reset'].includes(url.pathname))
           return json(res, { error: "Not found" }, 404);
         if (url.pathname.startsWith('/api/workspace/')) {
           if (!workspace) return json(res, { error: 'Workspace is not enabled.' }, 404);
@@ -125,6 +126,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
             if (settingsOnly) delete snapshot.chats;
             return json(res, {
               ...snapshot,
+              modelBrowser: modelBrowser.read(),
               legacyAvailable: !!legacy,
               profiles: P.PROFILES,
               claudeAccounts: claudeAccounts?.snapshot() || { accounts: [], pending: [], available: false },
@@ -134,6 +136,10 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
               routingStatus: require('./library-identity.cjs').readJson(path.join(dataDir, 'routing-status.json'), null),
             });
           }
+          case '/api/model-browser':
+            if (req.method === 'GET') return json(res, modelBrowser.read());
+            if (req.method !== 'POST') return json(res, {error:'Method not allowed.'}, 405);
+            return json(res, modelBrowser.save(b));
           case '/api/claude/existing': {
             if (!claudeAccounts) throw Error('Open Claude sign-in from the desktop app.');
             const connected = await claudeAccounts.useExisting();
@@ -327,6 +333,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
         "/app.js": settingsOnly ? "settings/app.js" : "app.js",
         "/style.css": settingsOnly ? "settings/style.css" : "style.css",
         "/logo.svg": "logo.svg",
+        "/model-list.js": "../model-list.js",
         "/marked.js": "vendor/marked.umd.js",
         "/purify.js": "vendor/purify.min.js",
       };

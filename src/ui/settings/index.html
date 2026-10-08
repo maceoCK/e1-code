@@ -27,6 +27,7 @@
     <div class="routing-footer"><p id="routing-status" role="status"></p><button id="save-routing" class="primary">Save routing</button></div>
   </section>
   <section id="models-panel" role="tabpanel" aria-labelledby="models-tab" hidden>
+      <div class="model-browser-setting"><label class="setting-row"><span><strong>Show legacy models</strong><small>Include older generations and dated snapshots in model pickers. Existing selections always remain available.</small></span><input type="checkbox" id="show-legacy-models"></label><p id="model-browser-status" role="status" aria-live="polite"></p></div>
       <div class="settings-body">
         <div class="settings-nav" id="provider-list"></div>
         <section id="provider-form">
@@ -126,4 +127,4 @@
 </section>
 </main>
 <dialog id="plan-welcome" aria-labelledby="welcome-title"><img src="/logo.svg" alt="E1 Code"><h2 id="welcome-title">Your ChatGPT plan is connected</h2><p>Eligible requests can use your ChatGPT plan. Add this account to your routing connections or select it under Models &amp; connections.</p><p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage usage in ChatGPT ↗</a></p><button id="welcome-done" class="primary">Got it</button></dialog>
-<script src="/app.js"></script></body></html>
+<script src="/model-list.js"></script><script src="/app.js"></script></body></html>

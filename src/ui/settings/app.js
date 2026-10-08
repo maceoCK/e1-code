@@ -47,11 +47,14 @@ function renderProviderList() {
   };
 }
 function modelOptions(p) {
-  $("models-list").innerHTML = p.models
+  const rows=provider=>provider.models.map(m=>({...m,model:m.id,providerName:provider.name,providerKind:provider.protocol}));
+  const visible=window.E1ModelList.arrange(rows(p),{showLegacy:state.modelBrowser?.showLegacy,
+    selected:$("model-id").value,universe:state.providers.flatMap(rows)});
+  $("models-list").innerHTML = visible
     .map((m) => `<option value="${escape(m.id)}">${escape(m.name)}</option>`)
     .join("");
   $("models-note").textContent = p.models.length
-    ? `${p.models.length} models available. You can also enter a model ID directly.`
+    ? `${visible.length} of ${p.models.length} models shown. You can also enter a model ID directly.`
     : "Refresh the model list, or enter any model ID served by this endpoint.";
 }
 function loadProvider() {
@@ -67,11 +70,11 @@ function loadProvider() {
   clearKey = false;
   $("settings-status").textContent = "";
   delete $("settings-status").dataset.success;
-  modelOptions(p);
   $("model-id").value =
     editing === state.selection.provider
       ? state.selection.model
       : p.preferredModel || p.models[0]?.id || "";
+  modelOptions(p);
   loadModelPrefs();
   preview();
 }
@@ -191,6 +194,16 @@ $("model-id").onchange = () => {
   preview();
 };
 
+$('show-legacy-models').onchange = async () => {
+  const control=$('show-legacy-models'), showLegacy=control.checked;
+  control.disabled=true; $('model-browser-status').textContent='';
+  try {
+    state.modelBrowser=await api('model-browser',{showLegacy});
+    modelOptions(state.providers.find(p=>p.id===editing));
+    $('model-browser-status').textContent='Saved. Model pickers update automatically.';
+  } catch(e) { control.checked=state.modelBrowser?.showLegacy === true; $('model-browser-status').textContent=e.message; }
+  finally { control.disabled=false; }
+};
 function showPanel(id) {
   for (const tab of document.querySelectorAll('[data-panel]')) {
     const active = tab.dataset.panel === id;
@@ -230,6 +243,7 @@ function renderRouting(order = state.routing?.order || []) {
   };
 }
 function renderAccounts() {
+  if (!$('show-legacy-models').disabled) $('show-legacy-models').checked = state.modelBrowser?.showLegacy === true;
   renderClaude();
   const accounts = state.subscriptions?.accounts || [];
   $('add-subscription').disabled = !state.subscriptions?.available;

@@ -59,6 +59,7 @@ const fs = require("node:fs"),
   const ion = path.join(bundle, "Contents/Resources/ion-dist");
   require('./patch-workflow-renderer.cjs').install(ionOriginal, ion);
   require('./patch-title-renderer.cjs').install(ionOriginal, ion);
+  require('./patch-model-browser.cjs').install(ionOriginal, ion);
   const brand = await require('./build-branding.cjs')(base, path.join(ion, 'assets/v1'), capture);
   fs.copyFileSync(
     path.join(base, "src/recovered-theme.css"),
@@ -67,6 +68,8 @@ const fs = require("node:fs"),
   fs.writeFileSync(path.join(ion, "assets/v1/aster-logo.svg"), svg);
   fs.copyFileSync(path.join(base, 'src/billing-indicator.js'), path.join(ion, 'assets/v1/e1-billing.js'));
   fs.copyFileSync(path.join(base, 'src/native-preferences-dialog.js'), path.join(ion, 'assets/v1/e1-preferences-dialog.js'));
+  fs.copyFileSync(path.join(base, 'src/model-list.js'), path.join(ion, 'assets/v1/e1-model-list.js'));
+  fs.copyFileSync(path.join(base, 'src/native-model-browser.js'), path.join(ion, 'assets/v1/e1-model-browser.js'));
   fs.copyFileSync(path.join(base, 'src/workflow-picker.js'), path.join(ion, 'assets/v1/e1-workflows.js'));
   fs.copyFileSync(path.join(base, 'src/speed-picker.js'), path.join(ion, 'assets/v1/e1-speed.js'));
   // Start from captured HTML every time. The targeted workflow and title
@@ -82,7 +85,7 @@ const fs = require("node:fs"),
       )
       .replace(
         "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
+        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
       );
     fs.writeFileSync(path.join(ion, file), html);
   }

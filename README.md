@@ -9,6 +9,7 @@ This repository contains E1 Code's integration layer, gateway, workspace source,
 - **Providers and accounts:** OpenAI Responses, Anthropic Messages, OpenAI-compatible endpoints, Ollama, Pi configuration discovery, ChatGPT plan sign-in, and a bridge to the official local Claude Code CLI.
 - **Routing:** multiple accounts, same-model subscription failover, explicit API fallback settings, and separate chat storage that survives connection changes.
 - **Per-chat controls:** Plan/API indicators with account details, preferred models and effort for native workflow children, and confirmed paid-API Fast/Ultrafast routing where supported.
+- **Model picker:** provider groups, newest versions first, and search by model, version, provider, or connection. Older generations and duplicate dated snapshots are hidden by default; enable **Show legacy models** under **Models & connections** or in the picker. Existing chat and subagent selections remain available. This preference does not change routing or account access.
 - **Workspace components:** chats, Pages, file tools, PTY terminals, browser panels, child chats, and schedules. Native browser hosting requires Electron; schedules run while the host is open.
 - **Desktop adapters:** a green theme, E1 branding, logo animation mapping, and narrow model/workflow hooks for one compatible local Claude Desktop capture.
 
@@ -49,7 +50,7 @@ The public checkout uses system fonts. Browser dependencies are generated from l
 | --- | --- |
 | Requests, streaming, and routing | `src/gateway*.cjs`, `src/providers.cjs`, `src/routing.cjs` |
 | Account connections and chat persistence | `src/subscriptions.cjs`, `src/claude-*.cjs`, `src/store.cjs`, `src/library-identity.cjs` |
-| Models, speed, and workflow preferences | `src/model-*.cjs`, `src/speed-*`, `src/workflow-*` |
+| Models, speed, and workflow preferences | `src/model-*`, `src/native-model-browser.js`, `src/speed-*`, `src/workflow-*` |
 | Native integration and billing UI | `src/main.cjs`, `src/recovered*`, `src/billing-*` |
 | Standalone workspace | `src/workspace-*.cjs`, `src/ui/workspace/` |
 | Settings and development chat UI | `src/server.cjs`, `src/ui/settings/`, `src/ui/` |

@@ -35,7 +35,7 @@
       configure(data) {
         state = data;
         const pref = preference(ctx);
-        const modelItems = [{label:'Same as main chat',value:''}, ...data.models.map(m => ({label:m.name,value:m.id}))];
+        const modelItems = [{label:'Same as main chat',value:''}, ...window.E1ModelList.items(data.models,{showLegacy:data.modelBrowser?.showLegacy,selected:pref.model})];
         if (pref.model && !data.models.some(m => m.id === pref.model)) modelItems.push({label:'Unavailable model — choose another',value:pref.model});
         const efforts = values => (data.models.find(m => m.id === values.model) || ctx.model).efforts;
         const normalize = values => ({...values, effort: efforts(values).includes(values.effort) ? values.effort : ''});
@@ -44,7 +44,7 @@
           description:ctx.chatId ? 'For this chat' : 'Default for chats using ' + ctx.model.name,
           values:normalize({model:pref.model || '',effort:pref.effort || ''}), reset:true,
           fields:values => [
-            {name:'model',label:'Subagent model',items:modelItems},
+            {name:'model',label:'Subagent model',items:modelItems,filter:(item,query)=>window.E1ModelList.matches(item,query)},
             {name:'effort',label:'Subagent effort',items:[{label:'Inherit chat effort',value:''}, ...efforts(values).map(value => ({value,label:({xhigh:'Extra',none:'None'})[value] || value[0].toUpperCase()+value.slice(1)}))]},
           ],
           normalize,

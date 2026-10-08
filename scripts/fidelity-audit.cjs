@@ -39,7 +39,7 @@ for (const file of walk(original)) {
       )
       .replace(
         "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
+        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
       );
     assert.equal(
       b.toString(),
@@ -50,6 +50,9 @@ for (const file of walk(original)) {
   } else if (file === require('./patch-workflow-renderer.cjs').file) {
     assert.equal(b.toString(), require('./patch-workflow-renderer.cjs').patch(a.toString()), 'Unexpected workflow renderer changes');
     patchedJavaScript.push({ file, purpose: 'Recognize Ultracode independently of provider reasoning effort', sha256: hash(b) });
+  } else if (file === require('./patch-model-browser.cjs').file) {
+    assert.equal(b.toString(), require('./patch-model-browser.cjs').patch(a.toString()), 'Unexpected model browser changes');
+    patchedJavaScript.push({file,purpose:'Group, sort and search model choices without changing inference routes',sha256:hash(b)});
   } else if (file === require('./patch-title-renderer.cjs').file) {
     assert.equal(b.toString(), require('./patch-title-renderer.cjs').patch(a.toString()), 'Unexpected split-pane title changes');
     patchedJavaScript.push({ file, purpose: 'Keep split-pane title pinning consistent with display branding', sha256: hash(b) });
@@ -86,6 +89,8 @@ assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-workflows.js'))
   .equals(fs.readFileSync(path.join(base, 'src/workflow-picker.js'))));
 assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-speed.js')).equals(fs.readFileSync(path.join(base, 'src/speed-picker.js'))));
 assert.ok(fs.readFileSync(path.join(installed, 'assets/v1/e1-preferences-dialog.js')).equals(fs.readFileSync(path.join(base, 'src/native-preferences-dialog.js'))));
+for (const [source,target] of [['model-list.js','e1-model-list.js'],['native-model-browser.js','e1-model-browser.js']])
+  assert.ok(fs.readFileSync(path.join(installed,'assets/v1',target)).equals(fs.readFileSync(path.join(base,'src',source))));
 const brandData = JSON.parse(fs.readFileSync(path.join(installed, 'assets/v1/aster-branding.json')));
 assert.equal(brandData.sourceSha256, hash(fs.readFileSync(path.join(base, 'assets/aster-source.svg'))));
 assert.ok(declarations.length > 0);

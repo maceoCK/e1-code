@@ -81,6 +81,7 @@
                   h(Dialog.Header, { description: config.description, children: config.title }, 'header'),
                   h('div', { className: 'flex flex-col gap-4', children: fields.map(field => h(Combobox, {
                     name: field.name, label: field.label, items: field.items,
+                    filter: field.filter,
                     value: values[field.name], disabled: busy || field.disabled,
                     onChange: value => {
                       values = { ...values, [field.name]: value ?? '' };
