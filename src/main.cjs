@@ -1,5 +1,39 @@
-const { app, BrowserWindow, Menu, MenuItem, safeStorage, shell, dialog, autoUpdater, session } = require("electron");
+const { app, BrowserWindow, Menu, MenuItem, safeStorage, shell, dialog, autoUpdater, session } = require("./secure-storage.cjs").install();
 const path = require("node:path"), fs = require("node:fs");
+if (process.argv.includes('--e1-check-keychain')) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'E1 Storage Verification'));
+  app.whenReady().then(async () => {
+    const probe = 'E1 storage verification ' + require('node:crypto').randomUUID();
+    if (safeStorage.decryptString(safeStorage.encryptString(probe)) !== probe) throw Error('Storage roundtrip failed.');
+    const directory = path.join(app.getPath('appData'), 'Aster');
+    let legacyCredentials = 0;
+    for (const [file, key] of [['workspace.json', 'providers'], ['subscription-accounts.json', 'accounts']]) {
+      const location = path.join(directory, file);
+      if (!fs.existsSync(location)) continue;
+      for (const record of JSON.parse(fs.readFileSync(location))[key] || []) {
+        if (!record.secret) continue;
+        const value = safeStorage.decryptString(Buffer.from(record.secret, 'base64'));
+        if (key === 'accounts') JSON.parse(value);
+        legacyCredentials++;
+      }
+    }
+    let browserCookie;
+    if (process.argv.includes('--e1-cookie-write') || process.argv.includes('--e1-cookie-read')) {
+      const cookies = session.fromPartition('persist:keychain-check').cookies;
+      const url = 'https://e1-keychain-check.invalid', name = 'storage-roundtrip', value = 'synthetic-encrypted-cookie';
+      if (process.argv.includes('--e1-cookie-write')) {
+        await cookies.set({ url, name, value, expirationDate: Date.now() / 1000 + 3600, secure: true });
+        await cookies.flushStore(); browserCookie = 'written';
+      } else {
+        const existing = await cookies.get({ url, name });
+        if (existing.length !== 1 || existing[0].value !== value) throw Error('Browser cookie did not survive the app rebuild.');
+        await cookies.remove(url, name); await cookies.flushStore(); browserCookie = 'restored-and-removed';
+      }
+    }
+    console.log(JSON.stringify({ storageBackend: 'stable-keychain-helper', keychainRoundtrip: true, legacyCredentialsReadable: legacyCredentials, browserCookie }));
+    app.exit(0);
+  }).catch(error => { console.error(error.message); app.exit(1); });
+} else {
 console.log("ASTER_BOOT", process.pid);
 const wantsConnections = argv => argv.includes("--aster-connections") || argv.includes("--show-connections");
 app.setName("E1 Code");
@@ -173,4 +207,6 @@ else {
     console.error("ASTER_RECOVERED_START_FAILED", error.message);
     app.quit();
   });
+}
+
 }

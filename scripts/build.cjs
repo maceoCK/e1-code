@@ -150,12 +150,24 @@ for app in list(r.glob('*Helper*.app')):
       "</dict></plist>",
   );
   cp.execFileSync("xattr", ["-cr", bundle]);
+  const helper = require('./build-keychain-helper.cjs').buildHelper(base);
+  require('./build-browser-storage.cjs')(base, path.join(bundle, 'Contents/Resources/e1-browser-storage.node'));
   const signing = require('./signing.cjs').configuration();
   cp.execFileSync(
     "codesign",
     ["--force", "--deep", "--sign", signing.identity, ...signing.args, "--entitlements", ent, bundle],
     { stdio: "pipe" },
   );
+  // Restore the cached, signed helper AFTER deep signing. Its own bytes and
+  // Keychain identity must not change with the surrounding application.
+  const helperBundle = path.resolve(helper.executable, '../../..');
+  const bundledHelper = path.join(bundle, 'Contents/Helpers/E1 Keychain Helper.app');
+  fs.rmSync(bundledHelper, { recursive: true, force: true });
+  fs.cpSync(helperBundle, bundledHelper, { recursive: true });
+  const helperManifest = { version: helper.version, sourceSha256: helper.sourceSha256, sha256: helper.sha256,
+    relativeExecutable: '../Helpers/E1 Keychain Helper.app/Contents/MacOS/E1 Keychain Helper' };
+  fs.writeFileSync(path.join(bundle, 'Contents/Resources/e1-keychain-helper.json'), JSON.stringify(helperManifest, null, 2) + '\n');
+  cp.execFileSync('codesign', ['--force', '--sign', signing.identity, ...signing.args, '--entitlements', ent, bundle], { stdio: 'pipe' });
   cp.execFileSync("codesign", ["--verify", "--deep", "--strict", bundle], {
     stdio: "pipe",
   });
