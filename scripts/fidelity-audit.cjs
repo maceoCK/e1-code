@@ -50,6 +50,9 @@ for (const file of walk(original)) {
   } else if (file === require('./patch-workflow-renderer.cjs').file) {
     assert.equal(b.toString(), require('./patch-workflow-renderer.cjs').patch(a.toString()), 'Unexpected workflow renderer changes');
     patchedJavaScript.push({ file, purpose: 'Recognize Ultracode independently of provider reasoning effort', sha256: hash(b) });
+  } else if (file === require('./patch-title-renderer.cjs').file) {
+    assert.equal(b.toString(), require('./patch-title-renderer.cjs').patch(a.toString()), 'Unexpected split-pane title changes');
+    patchedJavaScript.push({ file, purpose: 'Keep split-pane title pinning consistent with display branding', sha256: hash(b) });
   } else {
     assert.ok(a.equals(b), file + " differs from captured renderer");
     files.push({ file, sha256: hash(b) });

@@ -58,6 +58,7 @@ const fs = require("node:fs"),
   );
   const ion = path.join(bundle, "Contents/Resources/ion-dist");
   require('./patch-workflow-renderer.cjs').install(ionOriginal, ion);
+  require('./patch-title-renderer.cjs').install(ionOriginal, ion);
   const brand = await require('./build-branding.cjs')(base, path.join(ion, 'assets/v1'), capture);
   fs.copyFileSync(
     path.join(base, "src/recovered-theme.css"),
@@ -67,8 +68,8 @@ const fs = require("node:fs"),
   fs.copyFileSync(path.join(base, 'src/billing-indicator.js'), path.join(ion, 'assets/v1/e1-billing.js'));
   fs.copyFileSync(path.join(base, 'src/workflow-picker.js'), path.join(ion, 'assets/v1/e1-workflows.js'));
   fs.copyFileSync(path.join(base, 'src/speed-picker.js'), path.join(ion, 'assets/v1/e1-speed.js'));
-  // Start from captured HTML every time. The workflow hook above is the only
-  // renderer JS change; original styling and motion sources are preserved.
+  // Start from captured HTML every time. The targeted workflow and title
+  // adapters preserve the original styling and motion sources.
   for (const file of fs
     .readdirSync(ionOriginal)
     .filter((f) => f.endsWith(".html"))) {
