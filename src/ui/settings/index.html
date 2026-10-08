@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>E1 Code — Accounts &amp; models</title><link rel="icon" href="/logo.svg"><link rel="stylesheet" href="/style.css"></head><body>
+<header class="settings-heading"><img src="/logo.svg" alt="E1 Code"><div><h1>Accounts &amp; models</h1><p>One workspace. All your conversations.</p></div></header>
+<nav class="settings-tabs" role="tablist" aria-label="Settings">
+  <button id="accounts-tab" role="tab" aria-selected="true" aria-controls="accounts-panel" data-panel="accounts-panel">Accounts &amp; billing</button>
+  <button id="models-tab" role="tab" aria-selected="false" aria-controls="models-panel" tabindex="-1" data-panel="models-panel">Models &amp; connections</button>
+</nav>
+<main id="settings">
+  <section id="accounts-panel" class="account-routing" role="tabpanel" aria-labelledby="accounts-tab">
+    <div class="account-heading"><div><h2>Use your ChatGPT plan</h2><p>Connect an account to use its available plan allowance in E1 Code.</p></div><button id="add-subscription" class="chatgpt-signin">Continue with ChatGPT</button></div>
+    <p class="signin-note">Sign in securely at auth.openai.com. E1 Code never sees your password.</p>
+    <div id="subscription-list"></div>
+    <div id="subscription-status" role="status" aria-live="polite"></div>
+    <div class="claude-section">
+      <div class="account-heading"><div><h2>Run with your Claude account</h2><p>Use the official Claude Code installed on this Mac.</p></div><button id="add-claude">Add Claude account</button></div>
+      <p class="signin-note">Sign-in is handled by Claude Code. E1 Code never reads its credentials. <button id="existing-claude" class="link-button">Use existing Claude Code sign-in</button></p>
+      <div id="claude-list"></div><div id="claude-status" role="status" aria-live="polite"></div>
+      <details class="claude-note"><summary>Claude billing and other sign-in options</summary><p>Claude controls account eligibility, limits and billing. Account sign-in alone does not confirm that a request uses your plan allowance. Until confirmed by Claude, an amber <strong>Check Claude billing</strong> label stays visible. These connections require paid fallback to be allowed when routing automatically.</p><p>SDK and API usage may use separate credits. <a href="https://support.claude.com/en/articles/17154008-monthly-api-credits-for-max-and-team-plans" target="_blank" rel="noreferrer">Review Claude’s current billing rules ↗</a></p><button id="claude-console" class="link-button">Sign in with Claude Console instead</button></details>
+    </div>
+    <p class="library-note">Your conversations live on this Mac. Adding or signing out of an account keeps the same chat library.</p>
+    <div class="routing-heading"><h2>When a connection reaches its limit</h2><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage ChatGPT usage ↗</a></div>
+    <label class="setting-row"><span><strong>Switch to another connection</strong><small>Try selected connections that offer the exact same model.</small></span><input type="checkbox" id="routing-enabled"></label>
+    <label class="setting-row"><span><strong>Allow paid API fallback</strong><small>After subscriptions, allow selected API and Claude-managed billing connections. Otherwise, pause.</small></span><input type="checkbox" id="routing-api"></label>
+    <div class="api-notice" id="api-notice" hidden><span class="billing-swatch" aria-hidden="true"></span><span>API usage is billed separately. Each API chat has an amber model outline and an API label. Running chats also show their billing source in the sidebar.</span></div>
+    <h3>Fallback connections</h3><p class="field-note">Subscriptions run first. Only connections offering the same model and version can take over. If none remain, use that model through an allowed API connection or pause.</p>
+    <div id="routing-pool"></div>
+    <div class="routing-footer"><p id="routing-status" role="status"></p><button id="save-routing" class="primary">Save routing</button></div>
+  </section>
+  <section id="models-panel" role="tabpanel" aria-labelledby="models-tab" hidden>
+      <div class="settings-body">
+        <div class="settings-nav" id="provider-list"></div>
+        <section id="provider-form">
+          <label>Connection name<input id="provider-name" /></label>
+          <div class="two">
+            <label
+              >API format<select id="protocol">
+                <option value="responses">OpenAI Responses</option>
+                <option value="chat">OpenAI-compatible chat</option>
+                <option value="ollama">Ollama native</option>
+                <option value="anthropic">Anthropic Messages</option><option value="claude-code">Official Claude Code</option>
+              </select></label
+            ><label
+              >Prompt profile<select id="profile">
+                <option value="auto">Automatic</option>
+                <option value="reasoning">Reasoning</option>
+                <option value="general">General</option>
+                <option value="qwen">Qwen / local</option>
+                <option value="abliterated">Abliterated</option>
+              </select></label
+            >
+          </div>
+          <label
+            >Endpoint<input
+              id="endpoint"
+              type="url"
+              spellcheck="false" /></label
+          ><label
+            >API key<input
+              id="api-key"
+              type="password"
+              autocomplete="off"
+              placeholder="Leave blank to keep the current key"
+          /></label>
+          <div class="field-note">
+            <span id="key-source"></span
+            ><button id="clear-key" class="link-button" type="button">
+              Remove key
+            </button>
+          </div>
+          <div class="model-heading">
+            <label for="model-id">Model</label
+            ><button id="refresh-models" class="link-button" type="button">
+              Refresh models ↻
+            </button>
+          </div>
+          <input
+            id="model-id"
+            list="models-list"
+            placeholder="Choose or type an exact model ID"
+            autocomplete="off"
+            spellcheck="false"
+          /><datalist id="models-list"></datalist>
+          <p class="field-note" id="models-note">
+            Use any model served by this endpoint, including fine-tunes and
+            abliterated variants.
+          </p>
+          <details id="prompt-details">
+            <summary>Prompt & generation settings</summary>
+            <p id="profile-hint" class="field-note"></p>
+            <pre id="prompt-preview"></pre>
+            <label
+              >Your instructions<textarea
+                id="instructions"
+                rows="3"
+                placeholder="Preferences for this model, tone, or response format"
+              ></textarea>
+            </label>
+            <div class="two">
+              <label
+                >Output token limit<input
+                  id="max-tokens"
+                  type="number"
+                  min="64"
+                  max="32768"
+                  value="2048" /></label
+              ><label
+                >Reasoning effort<select id="effort">
+                  <option value="default">Provider default</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select></label
+              >
+            </div>
+            <p class="field-note">
+              Only supported generation controls are sent to each endpoint.
+              Prompt profiles do not alter a model’s weights or policies.
+            </p>
+          </details>
+          <div id="settings-status" role="status"></div>
+          <div class="settings-footer">
+            <button id="save-provider" class="primary">Save changes</button>
+          </div>
+        </section>
+      </div>
+</section>
+</main>
+<dialog id="plan-welcome" aria-labelledby="welcome-title"><img src="/logo.svg" alt="E1 Code"><h2 id="welcome-title">Your ChatGPT plan is connected</h2><p>Eligible requests can use your ChatGPT plan. Add this account to your routing connections or select it under Models &amp; connections.</p><p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage usage in ChatGPT ↗</a></p><button id="welcome-done" class="primary">Got it</button></dialog>
+<script src="/app.js"></script></body></html>

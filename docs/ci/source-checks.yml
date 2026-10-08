@@ -1,0 +1,29 @@
+name: Source checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:browser:install
+      - run: npm test
+      - run: npm run check:public
+      - name: Scan tracked history for credentials
+        run: |
+          command -v gitleaks || brew install gitleaks
+          gitleaks git --redact --no-banner --log-opts="--all"

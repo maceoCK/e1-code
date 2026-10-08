@@ -1,0 +1,65 @@
+/* Aster changes only brand colors and surfaces. The recovered layout, fonts,
+   focus behavior, keyframes, transitions, easing, and reduced-motion rules stay intact. */
+:root[data-theme="claude"],
+.cds-root {
+  --cds-clay: #497f74;
+  --cds-clay-emphasized: #35665b;
+  --cds-fill-brand-hover: #497f74;
+  --_brand-clay: 168 27% 39%;
+  --_brand-clay-emphasized: 167 32% 30%;
+  --accent-brand: 168 27% 39%;
+}
+
+:root[data-theme="claude"][data-mode="light"],
+:root[data-theme="claude"][data-mode="system"],
+.cds-root:not([data-mode="dark"]):not([data-mode="dark"] *) {
+  --cds-surface-0: #f1f3ef;
+  --cds-surface-1: #f8f9f6;
+  --cds-surface-2: #ffffff;
+  --cds-surface-3: #ffffff;
+  --bg-000: 0 0% 100%;
+  --bg-100: 80 20% 97%;
+  --bg-200: 90 14% 94%;
+  --bg-300: 100 12% 92%;
+}
+
+:root[data-theme="claude"][data-mode="dark"],
+[data-mode="dark"] .cds-root:not([data-mode="light"]):not([data-mode="system"]),
+.cds-root[data-mode="dark"],
+.cds-dark-scope[data-mode="dark"] {
+  --cds-clay: #8db9ab;
+  --cds-clay-emphasized: #497f74;
+  --_brand-clay: 164 24% 64%;
+  --_brand-clay-emphasized: 168 27% 39%;
+  --accent-brand: 164 24% 64%;
+  --cds-surface-0: #151a18;
+  --cds-surface-1: #1d2320;
+  --cds-surface-2: #242b27;
+  --cds-surface-3: #2b332e;
+  --bg-000: 140 9% 18%;
+  --bg-100: 150 9% 13%;
+  --bg-200: 156 11% 9%;
+  --bg-300: 150 10% 7%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="claude"][data-mode="system"],
+  [data-mode="system"]
+    .cds-root:not([data-mode="light"]):not([data-mode="dark"]),
+  .cds-root[data-mode="system"],
+  .cds-root:not([data-mode]):not([data-mode] *) {
+    --cds-clay: #8db9ab;
+    --cds-clay-emphasized: #497f74;
+    --_brand-clay: 164 24% 64%;
+    --_brand-clay-emphasized: 168 27% 39%;
+    --accent-brand: 164 24% 64%;
+    --cds-surface-0: #151a18;
+    --cds-surface-1: #1d2320;
+    --cds-surface-2: #242b27;
+    --cds-surface-3: #2b332e;
+    --bg-000: 140 9% 18%;
+    --bg-100: 150 9% 13%;
+    --bg-200: 156 11% 9%;
+    --bg-300: 150 10% 7%;
+  }
+}

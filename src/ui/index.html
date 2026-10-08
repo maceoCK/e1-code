@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>E1 Code</title>
+    <link rel="icon" href="/logo.svg" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="brand">
+          <img src="/logo.svg" alt="E1 Code mark" /><span>E1 Code</span
+          ><button
+            id="theme"
+            class="icon"
+            aria-label="Change color theme"
+            title="Change color theme"
+          >
+            ◐
+          </button>
+        </div>
+        <button id="new-chat" class="new-chat">
+          <span>＋</span> New chat <kbd>⌘ N</kbd>
+        </button>
+        <label class="search"
+          ><span>⌕</span
+          ><input
+            id="search"
+            placeholder="Search your chats"
+            aria-label="Search chats"
+        /></label>
+        <div class="rail-label">Your conversations</div>
+        <nav id="history" aria-label="Chat history"></nav>
+        <div class="rail-bottom">
+          <button id="providers-nav">
+            <span>⚙</span> Models & connections <span class="arrow">↗</span>
+          </button>
+          <div class="local-note">
+            <span class="status-dot"></span> Conversations saved on this Mac
+          </div>
+        </div>
+      </aside>
+      <main>
+        <header>
+          <button id="menu-toggle" class="icon" aria-label="Toggle sidebar">
+            ☰</button
+          ><span id="chat-title">New conversation</span>
+          <div class="header-actions">
+            <button id="export" class="quiet" title="Export this conversation">
+              Export</button
+            ><button
+              id="delete-chat"
+              class="icon"
+              aria-label="Delete conversation"
+            >
+              ⌫
+            </button>
+          </div>
+        </header>
+        <div id="conversation">
+          <section id="welcome">
+            <img class="welcome-mark" src="/logo.svg" alt="" />
+            <p class="eyebrow">A little more room to think</p>
+            <h1>Your ideas.<br />Any model.</h1>
+            <p class="intro">
+              A familiar space, with the model of your choice.
+            </p>
+            <div class="starters">
+              <button
+                data-prompt="Help me think through an idea. Start by asking what I want to build."
+              >
+                Think through an idea <span>↗</span></button
+              ><button
+                data-prompt="Help me write something clear and concise. Ask me who it is for and what I want to say."
+              >
+                Find the right words <span>↗</span></button
+              ><button
+                data-prompt="Help me solve a coding problem. Ask what I am building and what is not working."
+              >
+                Build something useful <span>↗</span>
+              </button>
+            </div>
+          </section>
+          <div id="messages" aria-live="polite"></div>
+        </div>
+        <div id="composer-area">
+          <div id="notice" role="status" hidden></div>
+          <div id="attachment" hidden></div>
+          <form id="composer">
+            <textarea
+              id="message"
+              placeholder="What would you like to work on?"
+              aria-label="Message"
+              rows="2"
+            ></textarea>
+            <div class="composer-tools">
+              <button
+                type="button"
+                id="attach"
+                class="icon"
+                aria-label="Attach a text file"
+                title="Attach text or code"
+              >
+                ＋</button
+              ><button type="button" id="model-button" class="model-button">
+                <span class="status-dot"></span
+                ><span id="selected-model">Choose a model</span
+                ><span>⌄</span></button
+              ><button
+                type="button"
+                id="profile-button"
+                class="profile-button"
+                title="Model-specific instructions"
+              >
+                Auto prompt</button
+              ><button id="send" aria-label="Send message" title="Send message">
+                ↑</button
+              ><button
+                type="button"
+                id="stop"
+                aria-label="Stop response"
+                hidden
+              >
+                ■
+              </button>
+            </div>
+          </form>
+          <div class="composer-foot">
+            <span id="route-hint">Choose a connection to begin</span
+            ><span>Return to send · ⇧ Return for a new line</span>
+          </div>
+        </div>
+      </main>
+    </div>
+    <dialog id="settings">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Make it yours</p>
+          <h2>Models & connections</h2>
+        </div>
+        <button class="icon close" aria-label="Close settings">×</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-nav" id="provider-list"></div>
+        <section id="provider-form">
+          <label>Connection name<input id="provider-name" /></label>
+          <div class="two">
+            <label
+              >API format<select id="protocol">
+                <option value="responses">OpenAI Responses</option>
+                <option value="chat">OpenAI-compatible chat</option>
+                <option value="ollama">Ollama native</option>
+                <option value="anthropic">Anthropic Messages</option>
+              </select></label
+            ><label
+              >Prompt profile<select id="profile">
+                <option value="auto">Automatic</option>
+                <option value="reasoning">Reasoning</option>
+                <option value="general">General</option>
+                <option value="qwen">Qwen / local</option>
+                <option value="abliterated">Abliterated</option>
+              </select></label
+            >
+          </div>
+          <label
+            >Endpoint<input
+              id="endpoint"
+              type="url"
+              spellcheck="false" /></label
+          ><label
+            >API key<input
+              id="api-key"
+              type="password"
+              autocomplete="off"
+              placeholder="Leave blank to keep the current key"
+          /></label>
+          <div class="field-note">
+            <span id="key-source"></span
+            ><button id="clear-key" class="link-button" type="button">
+              Remove key
+            </button>
+          </div>
+          <div class="model-heading">
+            <label for="model-id">Model</label
+            ><button id="refresh-models" class="link-button" type="button">
+              Refresh models ↻
+            </button>
+          </div>
+          <input
+            id="model-id"
+            list="models-list"
+            placeholder="Choose or type an exact model ID"
+            autocomplete="off"
+            spellcheck="false"
+          /><datalist id="models-list"></datalist>
+          <p class="field-note" id="models-note">
+            Use any model served by this endpoint, including fine-tunes and
+            abliterated variants.
+          </p>
+          <details id="prompt-details">
+            <summary>Prompt & generation settings</summary>
+            <p id="profile-hint" class="field-note"></p>
+            <pre id="prompt-preview"></pre>
+            <label
+              >Your instructions<textarea
+                id="instructions"
+                rows="3"
+                placeholder="Preferences for this model, tone, or response format"
+              ></textarea>
+            </label>
+            <div class="two">
+              <label
+                >Output token limit<input
+                  id="max-tokens"
+                  type="number"
+                  min="64"
+                  max="32768"
+                  value="2048" /></label
+              ><label
+                >Reasoning effort<select id="effort">
+                  <option value="default">Provider default</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select></label
+              >
+            </div>
+            <p class="field-note">
+              Only supported generation controls are sent to each endpoint.
+              Prompt profiles do not alter a model’s weights or policies.
+            </p>
+          </details>
+          <div id="settings-status" role="status"></div>
+          <div class="settings-footer">
+            <button id="save-provider" class="primary">Use this model</button>
+          </div>
+        </section>
+      </div>
+    </dialog>
+    <dialog id="delete-confirm">
+      <h2>Delete this conversation?</h2>
+      <p>This removes it from this Mac.</p>
+      <div class="confirm-actions">
+        <button id="cancel-delete">Keep conversation</button
+        ><button id="confirm-delete" class="primary">
+          Delete conversation
+        </button>
+      </div>
+    </dialog>
+    <input
+      type="file"
+      id="file"
+      accept=".txt,.md,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.yaml,.yml,.log,.rs,.go,.c,.cpp"
+      hidden
+    />
+    <script src="/marked.js"></script>
+    <script src="/purify.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

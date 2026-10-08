@@ -1,0 +1,36 @@
+{
+  "name": "e1-code",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Experimental local AI workspace, multi-provider gateway, account routing, and desktop integration",
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "dev": "node src/dev.cjs",
+    "build": "node scripts/build.cjs",
+    "postinstall": "node scripts/sync-ui-vendor.cjs",
+    "dev:chat": "ASTER_PROTOTYPE=1 node src/dev.cjs",
+    "test:browser:install": "playwright install chromium",
+    "check:public": "node scripts/check-public-files.cjs"
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.0.1",
+    "@electron/fuses": "^2.0.0",
+    "playwright": "^1.57.0",
+    "screencli": "latest",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
+    "dompurify": "^3.3.1",
+    "marked": "^17.0.0",
+    "node-pty": "1.2.0-beta.14"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maceoCK/e1-code.git"
+  }
+}
