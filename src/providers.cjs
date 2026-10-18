@@ -108,10 +108,11 @@ function initialProviders() {
       contextWindow: m.contextWindow,
       maxTokens: m.maxTokens,
       compat: m.compat || {},
+      ...require('./vision-fallback.cjs').modalityMetadata(m),
     }));
     ps.splice(1, 0, {
       id: `pi-${id}`,
-      name: id === "abliteration" ? "Abliteration" : id,
+      name: id === "abliteration" ? "Abliteration" : id === "decuff" ? "Decuff" : id === "decuff-pool" ? "Decuff Pool" : id,
       protocol:
         p.api === "anthropic-messages"
           ? "anthropic"
@@ -198,7 +199,7 @@ function profileFor(model, profile = "auto") {
   // Fine-tuned model IDs retain their base model after the ft: prefix.
   // Route with the full ID, but infer prompt defaults from the base model.
   if (model.startsWith("ft:")) model = model.split(":")[1] || model;
-  if (/abliter|dolphin|uncensored/i.test(model)) return "abliterated";
+  if (/abliter|dolphin|uncensored|decuff|heretic|huihui/i.test(model)) return "abliterated";
   if (/qwen|llama|mistral|gemma/i.test(model)) return "qwen";
   if (/(^|\/)(o[134](?:-|$)|gpt-[56])|deepseek.*r1|reason/i.test(model))
     return "reasoning";
@@ -273,6 +274,11 @@ function requestFor(p, model, messages, opts = {}) {
     if (p.protocol === "ollama")
       body.options.temperature = Number(opts.temperature);
     else body.temperature = Number(opts.temperature);
+  }
+  if (p.connectionMode === 'codex') {
+    if (p.baseUrl !== 'https://chatgpt.com/backend-api/codex' || !p.workspaceAccountId) throw Error('Invalid Codex account routing.');
+    headers['ChatGPT-Account-ID'] = p.workspaceAccountId; headers.originator = 'e1_code';
+    delete body.max_output_tokens; delete body.temperature; body.store=false; body.stream=true;
   }
   return { url: p.baseUrl + route, headers, body, profile: prompt.profile };
 }
@@ -361,6 +367,12 @@ async function models(p, key) {
     .map((m) => ({
       id: m.id || m.name,
       name: m.display_name || m.name || m.id,
+      ...(() => {
+        const contextWindow = require('./model-limits.cjs').contextWindow({ ...m, id: m.id || m.name }, p);
+        const maxTokens = require('./model-limits.cjs').positive(m.maxTokens ?? m.max_output_tokens ?? m.runtime?.max_output_tokens);
+        return { ...(contextWindow ? { contextWindow } : {}), ...(maxTokens ? { maxTokens } : {}) };
+      })(),
+      ...require('./vision-fallback.cjs').modalityMetadata(m),
     }))
     .filter((m) => m.id);
 }

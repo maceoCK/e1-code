@@ -39,7 +39,7 @@ for (const file of walk(original)) {
       )
       .replace(
         "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
+        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script><script defer src="/assets/v1/e1-dot.js"></script><script defer src="/assets/v1/e1-new-tab.js"></script><script defer src="/assets/v1/e1-settings-form.js"></script><script defer src="/assets/v1/e1-settings-navigation.js"></script></head>',
       );
     assert.equal(
       b.toString(),
@@ -53,21 +53,24 @@ for (const file of walk(original)) {
   } else if (file === require('./patch-model-browser.cjs').file) {
     assert.equal(b.toString(), require('./patch-model-browser.cjs').patch(a.toString()), 'Unexpected model browser changes');
     patchedJavaScript.push({file,purpose:'Group, sort and search model choices without changing inference routes',sha256:hash(b)});
-  } else if (file === require('./patch-tab-actions.cjs').file) {
-    assert.equal(b.toString(),require('./patch-tab-actions.cjs').patch(a.toString()));
-    patchedJavaScript.push({file,purpose:'Expose native pane actions to browser start',sha256:hash(b)});
-  } else if (file === require('./patch-browser-start.cjs').file) {
-    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchBrowser(require('./patch-browser-start.cjs').patch(a.toString())));
-    patchedJavaScript.push({file,purpose:'Browser start layout with native actions and same-tab navigation',sha256:hash(b)});
-  } else if (file === require('./patch-mixed-tabs.cjs').tabsFile) {
-    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchTabs(a.toString()));
-    patchedJavaScript.push({file,purpose:'Share native browser, file and terminal tabs in one group',sha256:hash(b)});
-  } else if (file === require('./patch-mixed-tabs.cjs').anchorFile) {
-    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchAnchor(a.toString()));
-    patchedJavaScript.push({file,purpose:'Hide native browser surfaces when switching tool tabs',sha256:hash(b)});
   } else if (file === require('./patch-title-renderer.cjs').file) {
     assert.equal(b.toString(), require('./patch-mixed-tabs.cjs').patch(require('./patch-title-renderer.cjs').patch(a.toString())), 'Unexpected title or mixed tab changes');
-    patchedJavaScript.push({ file, purpose: 'Keep split-pane title pinning consistent with display branding', sha256: hash(b) });
+    patchedJavaScript.push({ file, purpose: 'Keep title protection and use one shared tool tab group', sha256: hash(b) });
+  } else if (file === require('./patch-mixed-tabs.cjs').anchorFile) {
+    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchAnchor(a.toString()));
+    patchedJavaScript.push({file,purpose:'Hide native browser surfaces when another tool tab is selected',sha256:hash(b)});
+  } else if (file === require('./patch-mixed-tabs.cjs').tabsFile) {
+    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchTabs(a.toString()));
+    patchedJavaScript.push({file,purpose:'Share native browser, file and terminal tabs in one tool group',sha256:hash(b)});
+  } else if (file === require('./patch-tab-actions.cjs').file) {
+    assert.equal(b.toString(), require('./patch-tab-actions.cjs').patch(a.toString()));
+    patchedJavaScript.push({file,purpose:'Expose active pane actions to the universal tab selector',sha256:hash(b)});
+  } else if (file === require('./patch-browser-start.cjs').file) {
+    assert.equal(b.toString(),require('./patch-mixed-tabs.cjs').patchBrowser(require('./patch-browser-start.cjs').patch(a.toString())),'Unexpected browser start or visibility changes');
+    patchedJavaScript.push({file,purpose:'Codex browser start layout with native actions and same-tab navigation',sha256:hash(b)});
+  } else if (require('./patch-settings-pages.cjs').files.includes(file)) {
+    assert.equal(b.toString(),require('./patch-settings-pages.cjs').patch(file,a.toString()),'Unexpected Settings integration changes');
+    patchedJavaScript.push({file,purpose:'Native Settings pages for accounts, models and fallback',sha256:hash(b)});
   } else {
     assert.ok(a.equals(b), file + " differs from captured renderer");
     files.push({ file, sha256: hash(b) });

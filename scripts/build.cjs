@@ -2,25 +2,23 @@ const fs = require("node:fs"),
   path = require("node:path"),
   cp = require("node:child_process"),
   crypto = require("node:crypto");
+let bundleTransaction;
 (async () => {
   const base = path.resolve(__dirname, ".."),
     capture = process.env.E1_CAPTURE_ROOT && path.resolve(process.env.E1_CAPTURE_ROOT),
     out = path.join(base, "dist"),
-    bundle = process.env.E1_APP_BUNDLE ? path.resolve(process.env.E1_APP_BUNDLE) : path.join(out, "E1 Code.app"),
+    installedBundle = process.env.E1_APP_BUNDLE ? path.resolve(process.env.E1_APP_BUNDLE) : path.join(out, "E1 Code.app"),
     stage = path.join(base, ".package");
   if (process.platform !== 'darwin') throw Error('Native builds require macOS.');
   if (!capture) throw Error('Set E1_CAPTURE_ROOT to your local compatible capture. Proprietary application files are not included in this repository. See docs/native-build.md.');
   for (const relative of ['full/original/Claude.app/Contents/Info.plist', 'extracted/app/package.json', 'extracted/app/.vite/build/index.chunk-BZdcw7TE.js', 'readable/resources/ion-dist/assets/v1/cf2613ee5-Btwr9m9F.js'])
     if (!fs.existsSync(path.join(capture, relative))) throw Error('Missing local build input: ' + relative + '. See docs/native-build.md.');
   fs.mkdirSync(out, { recursive: true });
-  fs.mkdirSync(path.join(base, 'evidence'), { recursive: true });
-  fs.mkdirSync(path.dirname(bundle), { recursive: true });
-  if (!fs.existsSync(bundle))
-    cp.execFileSync("/bin/cp", [
-      "-cR",
-      path.join(capture, "full/original/Claude.app"),
-      bundle,
-    ]);
+  bundleTransaction = require('./bundle-transaction.cjs').beginBundle(
+    installedBundle,
+    path.join(capture, "full/original/Claude.app"),
+  );
+  const bundle = bundleTransaction.bundle;
   fs.mkdirSync(stage, { recursive: true });
   if (!fs.existsSync(path.join(stage, ".vite")))
     fs.cpSync(
@@ -28,6 +26,8 @@ const fs = require("node:fs"),
       stage,
       { recursive: true },
     );
+  // Replace the wrapper tree so removed source files cannot survive in the build cache.
+  fs.rmSync(path.join(stage, "aster"), { recursive: true, force: true });
   fs.cpSync(path.join(base, "src"), path.join(stage, "aster"), {
     recursive: true,
   });
@@ -63,6 +63,9 @@ const fs = require("node:fs"),
   require('./patch-tab-actions.cjs').install(ionOriginal, ion);
   require('./patch-browser-start.cjs').install(ionOriginal, ion);
   require('./patch-mixed-tabs.cjs').install(ionOriginal, ion);
+  require('./patch-settings-pages.cjs').install(ionOriginal, ion);
+  require('./patch-sandbox-settings.cjs').install(ionOriginal, ion);
+  const nativeDot=require('./patch-dot-native.cjs').install(ion,base);
   const brand = await require('./build-branding.cjs')(base, path.join(ion, 'assets/v1'), capture);
   fs.copyFileSync(
     path.join(base, "src/recovered-theme.css"),
@@ -71,13 +74,19 @@ const fs = require("node:fs"),
   fs.writeFileSync(path.join(ion, "assets/v1/aster-logo.svg"), svg);
   fs.copyFileSync(path.join(base, 'src/billing-indicator.js'), path.join(ion, 'assets/v1/e1-billing.js'));
   fs.copyFileSync(path.join(base, 'src/native-preferences-dialog.js'), path.join(ion, 'assets/v1/e1-preferences-dialog.js'));
-  for(const name of ['mixed-tabs','mixed-tab-state','mixed-tab-context'])
-    fs.copyFileSync(path.join(base, 'src',name+'.js'),path.join(ion,'assets/v1/e1-'+name+'.js'));
-  fs.copyFileSync(path.join(base, 'src/browser-start.js'), path.join(ion, 'assets/v1/e1-browser-start.js'));
   fs.copyFileSync(path.join(base, 'src/model-list.js'), path.join(ion, 'assets/v1/e1-model-list.js'));
   fs.copyFileSync(path.join(base, 'src/native-model-browser.js'), path.join(ion, 'assets/v1/e1-model-browser.js'));
   fs.copyFileSync(path.join(base, 'src/workflow-picker.js'), path.join(ion, 'assets/v1/e1-workflows.js'));
   fs.copyFileSync(path.join(base, 'src/speed-picker.js'), path.join(ion, 'assets/v1/e1-speed.js'));
+  fs.copyFileSync(path.join(base, 'src/new-tab-picker.js'), path.join(ion, 'assets/v1/e1-new-tab.js'));
+  for(const name of ['mixed-tabs','mixed-tab-state','mixed-tab-context'])
+    fs.copyFileSync(path.join(base, 'src',name+'.js'),path.join(ion,'assets/v1/e1-'+name+'.js'));
+  fs.copyFileSync(path.join(base, 'src/browser-start.js'), path.join(ion, 'assets/v1/e1-browser-start.js'));
+  fs.writeFileSync(path.join(ion,'assets/v1/e1-dot.js'),fs.readFileSync(path.join(base,'src/dot-sidebar.js'),'utf8').replaceAll('__E1_DOT_VERSION__',nativeDot.version));
+  fs.copyFileSync(path.join(base, 'src/ui/settings/app.js'), path.join(ion, 'assets/v1/e1-settings-form.js'));
+  fs.copyFileSync(path.join(base, 'src/native-settings-navigation.js'), path.join(ion, 'assets/v1/e1-settings-navigation.js'));
+  fs.copyFileSync(path.join(base, 'src/native-settings-pages.js'), path.join(ion, 'assets/v1/e1-settings-pages.js'));
+  fs.rmSync(path.join(ion,'assets/v1/e1-settings-modal.js'),{force:true});
   // Start from captured HTML every time. The targeted workflow and title
   // adapters preserve the original styling and motion sources.
   for (const file of fs
@@ -91,7 +100,7 @@ const fs = require("node:fs"),
       )
       .replace(
         "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script></head>',
+        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script><script defer src="/assets/v1/e1-dot.js"></script><script defer src="/assets/v1/e1-new-tab.js"></script><script defer src="/assets/v1/e1-settings-form.js"></script><script defer src="/assets/v1/e1-settings-navigation.js"></script></head>',
       );
     fs.writeFileSync(path.join(ion, file), html);
   }
@@ -179,14 +188,22 @@ for app in list(r.glob('*Helper*.app')):
     relativeExecutable: '../Helpers/E1 Keychain Helper.app/Contents/MacOS/E1 Keychain Helper' };
   fs.writeFileSync(path.join(bundle, 'Contents/Resources/e1-keychain-helper.json'), JSON.stringify(helperManifest, null, 2) + '\n');
   cp.execFileSync('codesign', ['--force', '--sign', signing.identity, ...signing.args, '--entitlements', ent, bundle], { stdio: 'pipe' });
-  cp.execFileSync("codesign", ["--verify", "--deep", "--strict", bundle], {
-    stdio: "pipe",
+  const previousBundle = bundleTransaction.commit(candidate => {
+    const actualHash = crypto.createHash('sha256')
+      .update(asar.getRawHeader(path.join(candidate, 'Contents/Resources/app.asar')).headerString).digest('hex');
+    const metadata = JSON.parse(cp.execFileSync('plutil', ['-extract', 'ElectronAsarIntegrity', 'json', '-o', '-', path.join(candidate, 'Contents/Info.plist')], {encoding:'utf8'}));
+    if(metadata['Resources/app.asar']?.hash !== actualHash) throw Error('Packaged archive checksum does not match Info.plist');
+    const helperPath = path.join(candidate, 'Contents/Helpers/E1 Keychain Helper.app/Contents/MacOS/E1 Keychain Helper');
+    const helperHash = crypto.createHash('sha256').update(fs.readFileSync(helperPath)).digest('hex');
+    if(helperHash !== helperManifest.sha256) throw Error('Bundled Keychain helper checksum does not match its manifest');
+    cp.execFileSync('codesign', ['--verify', '--deep', '--strict', candidate], {stdio:'pipe'});
   });
   fs.writeFileSync(
     path.join(out, "build.json"),
     JSON.stringify(
       {
-        bundle,
+        bundle: installedBundle,
+        previousBundle,
         capturedVersion: "2.19675.0",
         appArchiveHeaderHash: hash,
         builtAt: new Date().toISOString(),
@@ -198,9 +215,10 @@ for app in list(r.glob('*Helper*.app')):
     ),
   );
   const link = path.join(out, "E1 Code.app");
-  if (!fs.existsSync(link)) fs.symlinkSync(bundle, link);
-  console.log("Built and verified", bundle);
+  if (!fs.existsSync(link)) fs.symlinkSync(installedBundle, link);
+  console.log("Built and verified", installedBundle);
 })().catch((e) => {
+  try { bundleTransaction?.abort(); } catch(cleanupError) { console.error("Build cleanup:", cleanupError.message); }
   console.error(e.message);
   process.exit(1);
 });

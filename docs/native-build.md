@@ -24,7 +24,7 @@ E1_CAPTURE_ROOT=/absolute/path/to/capture-root npm run build
 
 The public build script writes to `dist/E1 Code.app` and stages files in `.package/`. It does not default to replacing an installed app. `E1_APP_BUNDLE` can explicitly select another destination. The build requires macOS, Python 3, `iconutil`, and `codesign`. Close any app at the selected destination before rebuilding. If changing the supplied capture, start with a fresh staging directory.
 
-The build applies the local model/workflow adapters, copies E1 source, updates branding, and signs the result. The credential helper requires a persistent local signing identity. `scripts/setup-signing.cjs` creates that identity in the current user's Keychain; it changes local Keychain state and is not run by `npm ci` or CI. Signing keys, certificates, and identity configuration are never included in this repository.
+The build applies the local model/workflow and model-picker adapters, copies E1 source, updates branding, and signs the result. It packages into a staged copy and replaces the destination only after the archive hash, Keychain helper checksum, and code signature verify. The credential helper requires a persistent local signing identity. `scripts/setup-signing.cjs` creates that identity in the current user's Keychain; it changes local Keychain state and is not run by `npm ci` or CI. Signing keys, certificates, and identity configuration are never included in this repository.
 
 ### Keychain access across updates
 
@@ -40,16 +40,21 @@ The native build needs Xcode Command Line Tools and Node-API headers. Install he
 
 Application data uses the existing local `Aster` and `Aster-Workspace-3p` profile names for history continuity. Launching a build can use those existing profiles. Make a local backup before testing changes against an important chat library.
 
-## Independent Electron workspace preview
+## Dot renderer input
 
-`scripts/build-workspace-preview.cjs` can package the experimental standalone workspace using a separately installed compatible Electron runtime:
+Dot hosts a separately captured ChatGPT desktop renderer (build 13536). The build copies its `assets/` from `E1_CHATGPT_CAPTURE` into the local bundle and adds export bindings at the host boundary; component bodies are not modified. Neither the capture nor the generated assets are included here.
 
 ```sh
-E1_ELECTRON_TEMPLATE=/absolute/path/to/Electron.app \
-  node scripts/build-workspace-preview.cjs /absolute/path/to/NewPreview.app
+E1_CAPTURE_ROOT=/absolute/path/to/capture-root \
+E1_CHATGPT_CAPTURE=/absolute/path/to/chatgpt-webview \
+  npm run build
 ```
 
-The destination must not exist. The preview has separate chat data, but currently reads already-connected Claude subscription account metadata from the local E1 profile. It does not yet provide independent account setup. The Node/Electron ABI must match the installed `node-pty` build or prebuilt binary. Its UI and feature coverage differ from the captured native client.
+`E1_CHATGPT_CAPTURE` is the directory containing the captured webview `assets/`. `node scripts/verify-dot-native.cjs` compares the installed app's Dot assets with the capture.
+
+## In-place updaters
+
+`scripts/install-vision-fallback.cjs` and `scripts/install-cua-operator.cjs` are one-shot updaters for an already-installed local build. Each patches only its own entries, re-signs with the existing identity, verifies every unrelated bundle file before replacing the bundle, and keeps a rollback copy. The CUA updater accepts only its pinned baseline hashes; the vision updater refuses an app that already contains it. Use the full build for a fresh install.
 
 ## Local diagnostics
 

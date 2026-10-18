@@ -71,7 +71,7 @@ test("out-of-order parallel read results retain their own file provenance", () =
   }
 });
 test("workflow parent waits for completion before reporting background results", () => {
-  const request = G.requestFor({ ...body, tools: [{ name: "Workflow", input_schema: {} }] },
+  const request = G.requestFor({ ...body, tools: [...body.tools, { name: "Workflow", input_schema: {} }] },
     { protocol: "responses", baseUrl: "https://example.test" }, route).body;
   assert.match(request.instructions, /Wait for its completion notification/);
   assert.match(request.instructions, /Ultracode is on/);

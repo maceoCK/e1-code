@@ -15,10 +15,11 @@ function normalizeModels(rows) {
     const previous = models.get(id);
     const aliases = [...new Set([...(previous?.aliases || []), row.value].filter(x => typeof x === 'string' && x !== id))];
     if (previous && row.value === 'default') { previous.aliases = aliases; continue; }
-    models.set(id, { id, name: modelName(id, row.displayName?.replace(/^Default.*$/, id) || id),
+    models.set(id, require('./model-limits.cjs').metadata({ id, name: modelName(id, row.displayName?.replace(/^Default.*$/, id) || id),
       description: row.description, aliases,
+      ...(require('./model-limits.cjs').contextWindow(row) ? { contextWindow: require('./model-limits.cjs').contextWindow(row) } : {}),
       reasoningEfforts: row.supportsEffort ? (row.supportedEffortLevels || ['low', 'medium', 'high']) : [],
-    });
+    }, { authType: 'claude-code' }));
   }
   return [...models.values()];
 }

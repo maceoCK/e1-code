@@ -34,21 +34,54 @@ const MODELS = [
   { id: 'fable', name: 'Fable (Claude Code default)', contextWindow: 200000, maxTokens: 32768, reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   { id: 'haiku', name: 'Haiku (Claude Code default)', contextWindow: 200000, maxTokens: 32768 },
 ];
+function identity(a) {
+  if (!a.orgId || typeof a.email !== 'string' || !a.email.includes('@')) return null;
+  if (a.method === 'console' && !a.workspaceId) return null;
+  return JSON.stringify([a.method, a.email.trim().toLowerCase(), a.orgId, a.method === 'console' ? a.workspaceId : null]);
+}
 class ClaudeAccounts {
   constructor(dir, options = {}) {
     this.dir = dir; this.file = path.join(dir, 'claude-accounts.json');
     this.executable = options.executable || findBinary(); this.run = options.run || run;
     this.spawn = options.spawn || spawn; this.openExternal = options.openExternal;
-    this.data = readJson(this.file, { version: 1, accounts: [] }); this.pending = new Map();
+    this.data = readJson(this.file, { version: 1, accounts: [] }); this.pending = new Map(); this.dedupe();
   }
-  save() { atomicJson(this.file, this.data); }
-  account(id) { const a = this.data.accounts.find(a => a.id === id); if (!a) throw Error('Claude account not found.'); return a; }
+  save() { atomicJson(this.file, this.data); this.onChange?.(); }
+  resolveAccountId(id) {
+    const seen = new Set();
+    while (this.data.accountAliases?.[id] && !seen.has(id)) { seen.add(id); id = this.data.accountAliases[id]; }
+    return id;
+  }
+  resolveProviderId(id) { return typeof id === 'string' && id.startsWith('claude-code-') ? 'claude-code-' + this.resolveAccountId(id.slice(12)) : id; }
+  dedupe() {
+    const groups = new Map(), removed = new Set();
+    for (const duplicate of this.data.accounts) {
+      const key = identity(duplicate); if (!key) continue;
+      const first = groups.get(key); if (!first) { groups.set(key, duplicate); continue; }
+      const backup = this.file + '.before-dedup';
+      if (!fs.existsSync(backup)) fs.writeFileSync(backup, JSON.stringify(this.data), { mode: 0o600, flag: 'wx' });
+      const stable = { id: first.id, label: first.label, preferredModel: first.preferredModel || duplicate.preferredModel };
+      const models = [...new Map([...(first.models || []), ...(duplicate.models || [])].map(m => [m.id, m])).values()];
+      if (duplicate.connected && (!first.connected || (duplicate.checkedAt || '') >= (first.checkedAt || ''))) {
+        Object.assign(first, duplicate, { profileDir: duplicate.profileDir, existing: duplicate.existing }, stable);
+      }
+      first.models = models;
+      this.data.accountAliases ||= {}; this.data.accountAliases[duplicate.id] = first.id; removed.add(duplicate.id);
+    }
+    if (!removed.size) return false;
+    this.data.accounts = this.data.accounts.filter(a => !removed.has(a.id));
+    for (const id of Object.keys(this.data.accountAliases)) this.data.accountAliases[id] = this.resolveAccountId(id);
+    for (const pending of this.pending.values()) pending.accountId = this.resolveAccountId(pending.accountId);
+    this.save(); return true;
+  }
+  account(id) { id = this.resolveAccountId(id); const a = this.data.accounts.find(a => a.id === id); if (!a) throw Error('Claude account not found.'); return a; }
   snapshot() {
     return { available: !!this.executable, accounts: this.data.accounts.map(({ configDir, profileDir, ...a }) => a),
       pending: [...this.pending.values()].map(({ child, timer, url, ...p }) => p) };
   }
   providers() {
     return this.data.accounts.map(a => ({ id: 'claude-code-' + a.id, accountId: a.id, name: a.label,
+      connectionAliases: Object.keys(this.data.accountAliases || {}).filter(id => this.resolveAccountId(id) === a.id).map(id => 'claude-code-' + id),
       authType: 'claude-code', protocol: 'claude-code', baseUrl: 'claude-code://local', signedIn: a.connected,
       executable: this.executable, configDir: a.configDir, profileDir: a.profileDir,
       models: (a.models?.length ? a.models : MODELS).map(m => ({ ...m, name: require('./claude-models.cjs').modelName(m.id, m.name) })),
@@ -60,9 +93,15 @@ class ClaudeAccounts {
     if (!this.executable) throw Error('Install the official Claude Code CLI to connect a Claude account.');
     const a = this.account(id), { data } = await this.run(this.executable, ['auth', 'status', '--json'], a.configDir, 30000, a.profileDir);
     a.connected = data.loggedIn === true; if (!a.connected) { delete a.billingState; delete a.allowance; } a.authMethod = data.authMethod || null;
-    a.apiProvider = data.apiProvider || null; a.subscriptionType = data.subscriptionType || null; a.email = data.email || null; a.checkedAt = new Date().toISOString();
+    a.apiProvider = data.apiProvider || null; a.subscriptionType = data.subscriptionType || null; a.email = data.email || null; a.orgId = typeof data.orgId === 'string' ? data.orgId : null; a.orgName = typeof data.orgName === 'string' ? data.orgName : null; a.checkedAt = new Date().toISOString();
+    let identity = a.connected && a.method === 'console' ? require('./claude-identity.cjs').consoleIdentity(a.profileDir || path.join(a.configDir, 'anthropic')) : null;
+    if (identity && ((a.orgId && a.orgId !== identity.orgId) || (a.email && identity.email && a.email.toLowerCase() !== identity.email.toLowerCase()))) identity = null;
+    if (identity) {
+      a.email ||= identity.email; a.orgId ||= identity.orgId; a.orgName ||= identity.orgName;
+    }
+    a.workspaceId = identity?.workspaceId || null; a.workspaceName = identity?.workspaceName || null;
     // CLI auth status does not prove the charge source of an individual request.
-    this.save(); return this.snapshot();
+    this.dedupe(); this.save(); return this.snapshot();
   }
   async models(id) {
     await this.refresh(id);
@@ -77,13 +116,13 @@ class ClaudeAccounts {
     if (!a) { a = { id: randomUUID(), label: 'Claude Code', configDir, existing: true, connected: false }; this.data.accounts.push(a); }
     a.profileDir = path.join(this.dir, 'claude-profiles', 'existing-subscription', 'anthropic');
     a.method = 'claudeai';
-    await this.refresh(a.id);
+    await this.refresh(a.id); a = this.account(a.id);
     if (!a.connected) {
       // A Console profile is a distinct, explicitly labelled API connection.
       a.profileDir = path.join(os.homedir(), '.config/anthropic'); a.method = 'console';
       a.label = 'Claude Console (existing)'; await this.refresh(a.id);
     }
-    return { accountId: a.id, ...this.snapshot() };
+    return { accountId: this.resolveAccountId(a.id), ...this.snapshot() };
   }
   recordBilling(id, billing, allowance) {
     if (!['api', 'subscription'].includes(billing) || !allowance) return;
@@ -126,7 +165,7 @@ class ClaudeAccounts {
     child.on('error', () => { p.status = 'failed'; p.error = 'Could not start Claude Code sign-in.'; clearTimeout(p.timer); });
     child.on('close', async code => {
       clearTimeout(p.timer); if (p.status !== 'waiting') return;
-      try { await this.refresh(a.id); p.status = code === 0 && a.connected ? 'complete' : 'failed';
+      try { await this.refresh(a.id); p.accountId = this.resolveAccountId(a.id); p.status = code === 0 && this.account(a.id).connected ? 'complete' : 'failed';
         if (p.status === 'complete') await this.models(a.id).catch(() => {}); }
       catch { p.status = 'failed'; }
       if (p.status === 'failed') p.error = 'Claude Code sign-in did not complete. Open it again to retry.';
@@ -137,7 +176,7 @@ class ClaudeAccounts {
   cancel(id) { const p = this.pending.get(id); if (p?.status === 'waiting') { p.status = 'cancelled'; clearTimeout(p.timer); p.child.kill('SIGTERM'); delete p.url; } }
   async reopen(id) { const p = this.pending.get(id); if (!p?.url || p.status !== 'waiting') throw Error('Sign-in URL is not ready. Try again shortly.'); await this.openExternal?.(p.url); }
   disconnect(id) {
-    this.account(id); for (const p of this.pending.values()) if (p.accountId === id) this.cancel(p.id);
+    id = this.account(id).id; for (const p of this.pending.values()) if (p.accountId === id) this.cancel(p.id);
     // Disconnecting never deletes official credentials, transcripts, or the shared chat library.
     this.data.accounts = this.data.accounts.filter(a => a.id !== id); this.save(); return { ok: true };
   }

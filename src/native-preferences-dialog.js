@@ -79,16 +79,26 @@
                 onSubmit: event => { event.preventDefault(); void save(); },
                 children: [
                   h(Dialog.Header, { description: config.description, children: config.title }, 'header'),
-                  h('div', { className: 'flex flex-col gap-4', children: fields.map(field => h(Combobox, {
-                    name: field.name, label: field.label, items: field.items,
-                    filter: field.filter,
-                    value: values[field.name], disabled: busy || field.disabled,
-                    onChange: value => {
-                      values = { ...values, [field.name]: value ?? '' };
-                      values = config.normalize?.(values) || values;
-                      error = ''; render();
-                    },
-                  }, field.name)) }, 'fields'),
+                  h('div', { className: 'flex flex-col gap-4', children: fields.map(field => {
+                    const change=value=>{values={...values,[field.name]:value??''};values=config.normalize?.(values)||values;error='';render();};
+                    if(field.presentation==='choices')return h('fieldset',{disabled:busy||field.disabled,className:'flex flex-col gap-2',children:[
+                      h('legend',{className:'mb-2 text-body font-medium',children:field.label},'label'),
+                      h('div',{role:'radiogroup','aria-label':field.label,className:'flex flex-wrap gap-2',children:field.items.map(item=>h(Button,{
+                        type:'button',role:'radio','aria-checked':values[field.name]===item.value,disabled:busy||field.disabled,
+                        tabIndex:values[field.name]===item.value||(!field.items.some(i=>i.value===values[field.name])&&item===field.items[0])?0:-1,
+                        onKeyDown:event=>{
+                          const keys=['ArrowRight','ArrowDown','ArrowLeft','ArrowUp','Home','End'];if(!keys.includes(event.key))return;event.preventDefault();
+                          const buttons=[...event.currentTarget.parentElement.querySelectorAll('[role=radio]:not(:disabled)')],index=buttons.indexOf(event.currentTarget);
+                          const next=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(['ArrowLeft','ArrowUp'].includes(event.key)?-1:1)+buttons.length)%buttons.length;
+                          buttons[next]?.focus();buttons[next]?.click();
+                        },
+                        variant:values[field.name]===item.value?'secondary':'ghost',
+                        className:field.rows?'w-full justify-start text-left h-auto py-3':'',
+                        onClick:()=>change(item.value),children:h('span',{children:[h('span',{className:'block',children:(values[field.name]===item.value?'✓ ':'')+item.label},'name'),item.description&&h('span',{className:'block text-secondary text-caption',children:item.description},'description')]})
+                      },item.value))},'choices')
+                    ]},field.name);
+                    return h(Combobox,{name:field.name,label:field.label,items:field.items,filter:field.filter,value:values[field.name],disabled:busy||field.disabled,onChange:change},field.name);
+                  }) }, 'fields'),
                   note && h('p', { className: 'mt-4 text-body text-secondary', 'data-warning': config.id === 'speed' ? '' : undefined, children: note }, 'note'),
                   error && h('p', { role: 'alert', className: 'mt-4 text-body text-danger', children: error }, 'error'),
                   h(Dialog.Footer, { children: [

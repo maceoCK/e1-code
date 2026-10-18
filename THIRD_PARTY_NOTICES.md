@@ -8,9 +8,7 @@ Runtime and development dependencies are declared in `package.json` and pinned i
 | --- | --- | --- |
 | marked | MIT | https://github.com/markedjs/marked |
 | DOMPurify | Apache-2.0 OR MPL-2.0 | https://github.com/cure53/DOMPurify |
-| @xterm/xterm | MIT | https://github.com/xtermjs/xterm.js |
-| @xterm/addon-fit | MIT | https://github.com/xtermjs/xterm.js |
 
-`node-pty` is MIT licensed; its package contains additional notices for platform-specific components. Build tools and their transitive dependencies carry their own license files in `node_modules/`.
+Build tools and their transitive dependencies carry their own license files in `node_modules/`.
 
-Claude Desktop, Claude Code, and provider services are separately supplied products. Their application code, binaries, fonts, and original logo artwork are not distributed in this repository. The native adapter scripts refer to local application structures and must be reviewed when the supplied application version changes.
+Claude Desktop, Claude Code, the ChatGPT desktop app, and provider services are separately supplied products. Their application code, binaries, fonts, and original logo artwork are not distributed in this repository. The native adapter scripts refer to local application structures and must be reviewed when the supplied application version changes.

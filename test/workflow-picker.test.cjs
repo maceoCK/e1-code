@@ -14,7 +14,7 @@ test('workflow picker saves the correct split chat, resets effort on incompatibl
     await page.locator('.e1-subagents-button').first().click();
     await choose(page,'Subagent effort','High');
     await choose(page,'Subagent model','Worker');
-    assert.equal((await page.getByRole('combobox',{name:/^Subagent effort /}).innerText()).startsWith('Inherit chat effort'),true);
+    assert.equal(await page.getByRole('radio',{name:/Inherit chat effort/}).getAttribute('aria-checked'),'true');
     await page.getByRole('button',{name:'Save changes',exact:true}).click();
     const saved=await page.evaluate(()=>window.saved);
     assert.equal(saved[0].chatId,'local_11111111-1111-4111-8111-111111111111');

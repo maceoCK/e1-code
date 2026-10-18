@@ -109,6 +109,9 @@ async function relay(upstream, protocol, model, res) {
       continue;
     }
     if (protocol === "responses") {
+      if (e.type === "response.cancelled" || e.type === "response.canceled" ||
+          (e.response?.status !== undefined && !["queued", "in_progress", "completed", "incomplete"].includes(e.response.status)))
+        throw Error("Provider returned an unsupported completion state.");
       if (e.type === "response.created") {
         result.usage.input_tokens = e.response.usage?.input_tokens || 0;
         start();
@@ -154,6 +157,8 @@ async function relay(upstream, protocol, model, res) {
           input_tokens: e.response.usage?.input_tokens || 0,
           output_tokens: e.response.usage?.output_tokens || 0,
         };
+        if (e.response.status !== undefined && e.response.status !== e.type.slice("response.".length))
+          throw Error("Provider returned an unsupported completion state.");
         stop = e.type === "response.incomplete" ? "max_tokens" : "end_turn";
         complete = true;
       }
@@ -189,11 +194,13 @@ async function relay(upstream, protocol, model, res) {
           delta(state.item, call.function.arguments);
         }
       }
-      if (c.finish_reason) {
+      if (c.finish_reason !== undefined && c.finish_reason !== null) {
         if (c.finish_reason === "content_filter")
           throw Error(
             "The provider stopped the response because of its content policy",
           );
+        if (!["stop", "tool_calls", "length"].includes(c.finish_reason))
+          throw Error("Provider returned an unsupported completion state.");
         for (const [index, state] of chatTools)
           if (!state.item)
             state.item = open("tool:" + index, {
@@ -212,7 +219,7 @@ async function relay(upstream, protocol, model, res) {
     if (!result.content.length)
       throw Error("The provider returned no text or tool calls");
     for (const item of blocks.values()) close(item);
-    if (result.content.some((b) => b.type === "tool_use")) stop = "tool_use";
+    if (stop !== "max_tokens" && result.content.some((b) => b.type === "tool_use")) stop = "tool_use";
     emit("message_delta", {
       delta: { stop_reason: stop, stop_sequence: null },
       usage: result.usage,

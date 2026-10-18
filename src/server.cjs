@@ -4,7 +4,7 @@ const http = require("node:http"),
   crypto = require("node:crypto");
 const { Store } = require("./store.cjs"),
   P = require("./providers.cjs");
-async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = false, subscriptions, claudeAccounts, workspaceGateway, workspaceAgent,
+async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = false, subscriptions, claudeAccounts,
   routingChanged = () => {}, resetRoutingHealth = () => {}, abortProvider = () => {} }) {
   const store = new Store(dataDir, vault),
     token = crypto.randomBytes(32).toString("hex"),
@@ -12,10 +12,6 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
     active = new Map();
   const modelBrowser = new (require('./model-browser-preferences.cjs').ModelBrowserPreferences)(dataDir);
   store.subscriptions = subscriptions; store.claudeAccounts = claudeAccounts;
-  const workspace = settingsOnly ? null : (workspaceAgent || (workspaceGateway ? new (require('./workspace-agent.cjs').WorkspaceAgent)({ directory: path.join(dataDir, 'chat-workspace'), gateway: workspaceGateway }) : null));
-  const eventClients = new Set();
-  const notifyWorkspace = event => { for (const response of eventClients) response.write('data: ' + JSON.stringify(event) + '\n\n'); };
-  workspace?.on('change', notifyWorkspace);
   let origin;
   const json = (res, data, status = 200) => {
     res.writeHead(status, {
@@ -42,7 +38,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
       res.setHeader("Referrer-Policy", "no-referrer");
       res.setHeader(
         "Content-Security-Policy",
-        `default-src 'self'; script-src 'self'; style-src 'self'${workspace && url.pathname === "/workspace" ? " 'unsafe-inline'" : ""}; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'`,
+        `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'`,
       );
       if (url.pathname === "/api/session" && req.method === "POST") {
         if (req.headers.origin !== origin)
@@ -70,55 +66,6 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
           return json(res, { error: "Origin rejected." }, 403);
         if (settingsOnly && !["/api/state", "/api/provider", "/api/models", "/api/model-browser", "/api/preferences", "/api/preview", '/api/subscription/login', '/api/subscription/cancel', '/api/subscription/reopen', '/api/subscription/acknowledge', '/api/subscription/logout', '/api/claude/existing', '/api/claude/login', '/api/claude/refresh', '/api/claude/reopen', '/api/claude/cancel', '/api/claude/disconnect', '/api/routing', '/api/routing/reset'].includes(url.pathname))
           return json(res, { error: "Not found" }, 404);
-        if (url.pathname.startsWith('/api/workspace/')) {
-          if (!workspace) return json(res, { error: 'Workspace is not enabled.' }, 404);
-          const route = url.pathname.slice('/api/workspace/'.length);
-          if (route === 'events' && req.method === 'GET') {
-            res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
-            res.write('data: {"type":"ready"}\n\n'); eventClients.add(res);
-            const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 15000);
-            res.on('close', () => { clearInterval(heartbeat); eventClients.delete(res); }); return;
-          }
-          if (route === 'state' && req.method === 'GET') return json(res, workspace.snapshot());
-          if (req.method !== 'POST') return json(res, { error: 'Method not allowed.' }, 405);
-          const input = await read(req);
-          switch (route) {
-            case 'browser-layout': {
-              const browser = workspace.tools.browser;
-              if (!browser) throw Error('Browser host is not connected.');
-              if (!input.id) { browser.hide(); return json(res, { visible: false }); }
-              const chat = workspace.state.chat(input.chatId);
-              if (!chat.panels.some(p => p.id === chat.activePanelId && p.kind === 'browser' && p.resourceId === input.id)) throw Error('Select the browser panel before showing it.');
-              const b = input.bounds;
-              if (!b || !['x','y','width','height'].every(k => Number.isFinite(b[k]) && b[k] >= 0 && b[k] <= 16000)) throw Error('Invalid browser bounds.');
-              await browser.present(input.chatId, input.id, { x: b.x, y: b.y, width: b.width, height: b.height }); return json(res, { visible: true });
-            }
-            case 'chat': return json(res, workspace.state.createChat(input));
-            case 'send': return json(res, workspace.start(input.chatId, input.text, input.model));
-            case 'model': return json(res, workspace.setModel(input.chatId, input.model));
-            case 'resume': return json(res, workspace.resume(input.chatId, input.model));
-            case 'notification-read': return json(res, workspace.state.change(data => {
-              const notification = (data.notifications || []).find(n => n.id === input.id);
-              if (!notification) throw Error('Notification not found.'); notification.read = true; return notification;
-            }));
-            case 'stop': await workspace.stop(input.chatId); return json(res, { stopped: true });
-            case 'tool': return json(res, await workspace.tools.call(input.chatId, input.name, input.arguments));
-            case 'layout': {
-              if (!Number.isFinite(input.width) || input.width < 280 || input.width > 1600 || !['right', 'bottom'].includes(input.position)) throw Error('Invalid panel layout.');
-              return json(res, workspace.state.updateChat(input.chatId, c => { c.layout = { width: input.width, position: input.position }; }));
-            }
-            case 'select-panel': return json(res, workspace.state.updateChat(input.chatId, c => { if (!c.panels.some(p => p.id === input.id)) throw Error('Panel not found.'); c.activePanelId = input.id; }));
-            case 'limits': {
-              for (const key of Object.keys(input.limits || {})) if (!['maxTabs', 'activeTabs', 'maxToolRounds'].includes(key)) throw Error('Unknown resource limit.');
-              return json(res, workspace.state.updateChat(input.chatId, c => {
-                const limits = { ...c.limits, ...input.limits };
-                if (!Number.isInteger(limits.maxTabs) || limits.maxTabs < 1 || limits.maxTabs > 256 || !Number.isInteger(limits.activeTabs) || limits.activeTabs < 1 || limits.activeTabs > limits.maxTabs || !Number.isInteger(limits.maxToolRounds) || limits.maxToolRounds < 1 || limits.maxToolRounds > 1000) throw Error('Invalid resource limits.');
-                c.limits = limits;
-              }));
-            }
-            default: return json(res, { error: 'Not found' }, 404);
-          }
-        }
         const b = req.method === "GET" ? {} : await read(req);
         switch (url.pathname) {
           case "/api/state": {
@@ -170,7 +117,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
             if (subscriptions) { subscriptions.data.welcomeAcknowledged = true; subscriptions.save(); }
             return json(res, { ok: true });
           case '/api/subscription/cancel':
-            subscriptions?.cancel(b.id); return json(res, { ok: true });
+            await subscriptions?.cancel(b.id); return json(res, { ok: true });
           case '/api/subscription/logout':
             if (!subscriptions) throw Error('Subscription sign-in requires the desktop app.');
             abortProvider('chatgpt-' + b.accountId);
@@ -328,7 +275,6 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
         }
       }
       const files = {
-        ...(workspace ? { '/workspace': 'workspace/index.html', '/workspace/app.js': 'workspace/app.js', '/workspace/style.css': 'workspace/style.css', '/workspace/terminal.js': 'workspace/terminal.js', '/workspace/xterm.js': 'vendor/xterm.js', '/workspace/xterm.css': 'vendor/xterm.css', '/workspace/xterm-addon-fit.js': 'vendor/xterm-addon-fit.js' } : {}),
         "/": settingsOnly ? "settings/index.html" : "index.html",
         "/app.js": settingsOnly ? "settings/app.js" : "app.js",
         "/style.css": settingsOnly ? "settings/style.css" : "style.css",
@@ -359,15 +305,11 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
   return {
     server,
     store,
-    workspace,
     origin,
     url: `${origin}/#${token}`,
     close: () => {
       for (const c of active.values()) c.abort();
-      workspace?.off('change', notifyWorkspace);
-      for (const response of eventClients) response.end();
       server.close();
-      return workspace?.close();
     },
   };
 }

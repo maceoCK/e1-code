@@ -24,6 +24,9 @@ async function nativeFixture(page, body) {
   await page.addScriptTag({ path: path.resolve(__dirname, '../src/native-preferences-dialog.js') });
 }
 async function choose(page, label, option) {
+  await page.getByRole('dialog').waitFor();
+  const group=page.getByRole('radiogroup',{name:label,exact:true});
+  if(await group.count()){await group.getByRole('radio',{name:new RegExp('^(?:✓ )?'+option+'$')}).click();return;}
   await page.getByRole('combobox', { name: new RegExp('^' + label + ' ') }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
 }

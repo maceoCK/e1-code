@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const P = require("./providers.cjs");
 const Routing = require('./routing.cjs');
 const Speed = require('./speed-preferences.cjs');
+const Limits = require('./model-limits.cjs');
 const textOf = (x) =>
   typeof x === "string"
     ? x
@@ -38,35 +39,44 @@ function catalog(store) {
         provider: p.id,
         model: m.id,
         display_name: `${p.name} · ${m.name || m.id}`,
-        meta: m,
-        ...(p.authType === 'claude-code' ? { family: 'claude-code', aliases: (m.aliases || []).map(alias => routeId(p.id, alias)) } : {}),
+        meta: Limits.metadata(m, p),
+        ...(p.connectionAliases?.length ? { aliases: p.connectionAliases.map(alias => routeId(alias, m.id)) } : {}),
+        ...(p.authType === 'claude-code' ? { family: 'claude-code', aliases: [...(m.aliases || []).map(alias => routeId(p.id, alias)), ...(p.connectionAliases || []).flatMap(provider => [m.id, ...(m.aliases || [])].map(model => routeId(provider, model)))] } : {}),
       });
     }
   }
-  return rows;
+  return rows.map(Limits.withContextAliases);
 }
 // A model is independent of the account paying for it. Keep transport routes
 // (and their old IDs) separate from the public model picker.
 function modelCatalog(store, routes = catalog(store)) {
   const rows = [], seen = new Set(), policy = Routing.policyFor(store.data.routing);
+  const providers=[...store.data.providers,...(store.subscriptions?.providers()||[]),...(store.claudeAccounts?.providers()||[])];
+  const provider=id=>store.provider?store.provider(id):providers.find(p=>p.id===id);
   for (const route of routes) {
-    if (route.family !== 'claude-code') { rows.push(route); continue; }
-    if (seen.has(route.model)) continue;
-    seen.add(route.model);
-    const connections = routes.filter(r => r.family === route.family && r.model === route.model);
+    const family=Routing.modelFamily(provider(route.provider));
+    if (!['openai','anthropic'].includes(family)) { rows.push(route); continue; }
+    const key=family+':'+route.model;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const connections = routes.filter(r => Routing.modelFamily(provider(r.provider))===family && r.model === route.model);
     const rank = r => {
       const order = policy.order.indexOf(r.provider);
-      return (policy.enabled && ['api', 'account'].includes(Routing.billingFor(store.provider(r.provider))) ? 10000 : 0) +
+      return (policy.enabled && ['api', 'account'].includes(Routing.billingFor(provider(r.provider))) ? 10000 : 0) +
         (order >= 0 && policy.enabled ? order : r.provider === store.data.selection?.provider ? -1 : 1000);
     };
     connections.sort((a, b) => rank(a) - rank(b));
-    const label = require('./claude-models.cjs').modelName(route.model, connections[0].meta.name || route.model);
-    rows.push({ ...connections[0], id: routeId('claude-model', route.model), pool: 'claude-code',
-      display_name: /^Claude\b/.test(label) ? label : 'Claude ' + label,
-      aliases: connections.flatMap(r => [r.id, ...(r.aliases || [])]),
+    const label = family==='anthropic'?require('./claude-models.cjs').modelName(route.model, route.model):route.model.replace(/^gpt-/,'GPT-');
+    // A pooled picker entry may fail over between connections. Never advertise
+    // more context than its shortest connection (unknown stays conservative).
+    const contextWindow = Math.min(...connections.map(r => r.meta?.contextWindow || 200000));
+    rows.push({ ...connections[0], id: routeId(family==='anthropic'?'claude-model':'openai-model', route.model), pool: family==='anthropic'?'claude-code':'openai',
+      meta: { ...connections[0].meta, contextWindow },
+      display_name: family==='anthropic'&&!/^Claude\b/.test(label)?'Claude '+label:label,
+      aliases: connections.flatMap(r => [r.id, ...(r.aliases || []).filter(id => !/\[1m\]$/i.test(id))]),
     });
   }
-  return rows;
+  return rows.map(Limits.withContextAliases);
 }
 function hasWorkflowSubtask(body) {
   return (body.messages || []).some(m => m.role === "user" &&
@@ -154,6 +164,7 @@ function parts(content, protocol, role) {
   });
 }
 function requestFor(body, provider, route, opts = {}) {
+  if (provider.protocol !== 'anthropic') body = require('./deferred-tools.cjs').prepare(body);
   // A session's picker choice takes precedence over the saved connection default.
   opts = { ...opts, effort: body.output_config?.effort ?? opts.effort };
   if (provider.protocol === 'claude-code') {
@@ -308,18 +319,21 @@ function requestFor(body, provider, route, opts = {}) {
         effort,
       };
     if (provider.authType === 'chatgpt-subscription') {
-      if (provider.baseUrl !== 'https://api.openai.com/v1') throw Error('ChatGPT plan credentials are restricted to the official Responses endpoint.');
+      const expected = provider.connectionMode === 'codex' ? 'https://chatgpt.com/backend-api/codex' : 'https://api.openai.com/v1';
+      if (provider.baseUrl !== expected) throw Error('ChatGPT credentials are restricted to their official backend.');
       delete result.max_output_tokens;
       result.stream = true;
       // ToolChoiceFunction has no namespace field. A one-tool namespace with
       // required choice preserves the native request to call exactly that tool.
-      if (typeof result.tool_choice === 'object') {
+      if (provider.connectionMode !== 'codex' && typeof result.tool_choice === 'object') {
         result.tools = result.tools.filter(t => t.name === result.tool_choice.name);
         if (!result.tools.length) throw Error('The requested tool is not declared.');
         result.tool_choice = 'required';
       }
-      if (result.tools?.length) result.tools = [{ type: 'namespace', name: 'functions', description: 'Local E1 Code tools', tools: result.tools }];
-      for (const item of result.input) if (['function_call', 'function_call_output'].includes(item.type)) item.namespace = 'functions';
+      if (provider.connectionMode !== 'codex') {
+        if (result.tools?.length) result.tools = [{ type: 'namespace', name: 'functions', description: 'Local E1 Code tools', tools: result.tools }];
+        for (const item of result.input) if (['function_call', 'function_call_output'].includes(item.type)) item.namespace = 'functions';
+      }
     }
     return { url: provider.baseUrl + "/responses", body: result };
   }
@@ -363,6 +377,8 @@ function responseFor(data, protocol, model) {
   if (protocol === "responses") {
     if (data.error || data.status === "failed")
       throw Error(data.error?.message || "Provider failed.");
+    if (!["completed", "incomplete"].includes(data.status))
+      throw Error("Provider returned an unsupported completion state.");
     for (const item of data.output || []) {
       if (item.type === "message")
         for (const c of item.content || [])
@@ -383,6 +399,10 @@ function responseFor(data, protocol, model) {
     if (data.error) throw Error(data.error.message || "Provider failed.");
     const c = data.choices?.[0];
     if (!c) throw Error("Provider returned no completion.");
+    if (c.finish_reason === "content_filter")
+      throw Error("The provider stopped the response because of its content policy");
+    if (!["stop", "tool_calls", "length"].includes(c.finish_reason))
+      throw Error("Provider returned an unsupported completion state.");
     if (c.message?.content)
       content.push({ type: "text", text: c.message.content });
     for (const t of c.message?.tool_calls || [])
@@ -399,7 +419,7 @@ function responseFor(data, protocol, model) {
     input = data.usage?.prompt_tokens || 0;
     output = data.usage?.completion_tokens || 0;
   }
-  if (content.some((c) => c.type === "tool_use")) stop = "tool_use";
+  if (stop !== "max_tokens" && content.some((c) => c.type === "tool_use")) stop = "tool_use";
   return {
     id: "msg_" + crypto.randomUUID(),
     type: "message",
@@ -487,10 +507,16 @@ async function startGateway({
   };
   const active = new Set();
   const activeProviders = new Map();
+  const activeVisionProviders = new Map();
   const disconnected = new Set();
   const health = store.data.routingHealth || {};
+  const visionDependencies = { store, transport, requestFor, responseFor,
+    relay: require('./gateway-stream.cjs').relay, disconnected, health };
+  const prepareImages = require('./vision-fallback.cjs').createVisionFallback(visionDependencies);
+  const cuaOperator = require('./cua-operator.cjs').createCuaOperator(visionDependencies);
   const workflowRouter = new (require('./workflow-preferences.cjs').WorkflowRouter)(store.nativeProfile);
   const speedRouter = new Speed.SpeedRouter(store.nativeProfile);
+  const planChoices=store.dir?new (require('./plan-selection.cjs').PlanSelection)(store.dir):null;
   const server = http.createServer(async (req, res) => {
     let ping;
     const controller = new AbortController();
@@ -545,6 +571,8 @@ async function startGateway({
             type: "model",
             display_name: r.display_name,
             created_at: "2026-10-07T00:00:00Z",
+            ...(r.meta?.contextWindow ? { max_input_tokens: r.meta.contextWindow } : {}),
+            supports_1m: Limits.supports1m(r),
           })),
           has_more: false,
           first_id: models[0]?.id,
@@ -587,14 +615,29 @@ async function startGateway({
         );
       }
       const policy = Routing.policyFor(store.data.routing);
-      const candidates = (speed.route ? [speed.route] : Routing.candidateRoutes(route, routes, store, policy, health)).filter(r => !disconnected.has(r.provider));
+      const planChat=speedRouter.index?.resolve(require('./billing-state.cjs').requestScope(body))?.chatId;
+      const pin=planChoices?.choice(planChat,route);
+      const planRoutes=pin?require('./plan-selection.cjs').pinnedRoutes(pin,route,routes,store,health):null;
+      const candidates = (speed.route ? [speed.route] : planRoutes || Routing.candidateRoutes(route, routes, store, policy, health)).filter(r => !disconnected.has(r.provider));
       if (!candidates.length) throw Error(`No eligible connection is available for ${route.model}. Connections may be paused or excluded by your billing settings. The model was not changed and your chat is saved. Review Accounts & billing.`);
       for (let attempt = 0; attempt < candidates.length; attempt++) {
       const actualRoute = candidates[attempt];
       const provider = store.provider(actualRoute.provider);
       const opts = store.data.modelPreferences?.[`${actualRoute.provider}:${actualRoute.model}`] ||
         (actualRoute.meta?.aliases || []).map(alias => store.data.modelPreferences?.[`${actualRoute.provider}:${alias}`]).find(Boolean) || {};
-      const outbound = Speed.applySpeed(requestFor(body, provider, actualRoute, opts),provider,speed.mode);
+      activeProviders.set(controller, provider.id);
+      const trackVision = id => id ? activeVisionProviders.set(controller, id) : activeVisionProviders.delete(controller);
+      const operator = await cuaOperator.prepare(body, actualRoute, routes, controller.signal, trackVision);
+      if (operator.immediate) {
+        controller.signal.throwIfAborted();
+        clearInterval(ping);
+        activeProviders.delete(controller);
+        if (body.stream) writeStream(res, operator.immediate);
+        else json(res, operator.immediate);
+        return;
+      }
+      const prepared = await prepareImages(operator.body, actualRoute, routes, controller.signal, trackVision);
+      const outbound = Speed.applySpeed(requestFor(prepared, provider, actualRoute, opts),provider,speed.mode);
       if (body.stream) {
         outbound.body.stream = true;
         if (provider.protocol === 'ollama') outbound.body.stream_options = { include_usage: true };
@@ -605,6 +648,10 @@ async function startGateway({
       if (provider.protocol === 'anthropic') { headers['x-api-key'] = key; headers['anthropic-version'] = '2023-06-01'; }
       if (provider.protocol === 'anthropic' && speed.mode === 'fast') headers['anthropic-beta']='fast-mode-2026-02-01';
       else if (key) headers.Authorization = `Bearer ${key}`;
+      if (provider.connectionMode === 'codex') {
+        if (!provider.workspaceAccountId) throw Error('Reconnect this Codex account to select its workspace.');
+        headers['ChatGPT-Account-ID'] = provider.workspaceAccountId; headers.originator = 'e1_code';
+      }
       const status = { provider: provider.id, accountId: provider.accountId, authType: provider.authType, label: provider.name, model: actualRoute.model,
         ...Routing.billingDetails(provider),
         requestedSpeed: speed.mode,
@@ -617,7 +664,9 @@ async function startGateway({
       try {
       let upstream, result, isLiveStream = false;
       if (provider.authType === 'claude-code') {
-        result = await require('./claude-engine.cjs').generate(provider, { ...outbound.body, model: body.model }, actualRoute.model, controller.signal,
+        const accountModel = Limits.supports1m(actualRoute) && !/\[1m\]$/i.test(actualRoute.model)
+          ? actualRoute.model + '[1m]' : actualRoute.model;
+        result = await require('./claude-engine.cjs').generate(provider, { ...outbound.body, model: body.model }, accountModel, controller.signal,
           (billing, allowance) => { provider.billing = billing; status.billing = billing; status.allowance = allowance; onStatus({ ...status }); });
       } else {
       upstream = await transport(outbound.url, {
@@ -631,12 +680,18 @@ async function startGateway({
         redirect: "error",
         credentials: "omit",
       });
+      if (upstream.status === 401 && provider.connectionMode === 'codex') {
+        await upstream.body?.cancel();
+        headers.Authorization = 'Bearer ' + await store.subscriptions.token(provider.accountId, true);
+        upstream = await transport(outbound.url, { method:'POST', headers, body:JSON.stringify(outbound.body),
+          signal:AbortSignal.any([controller.signal,AbortSignal.timeout(300000)]), redirect:'error', credentials:'omit' });
+      }
       if (!upstream.ok) {
         let data; try { data = await upstream.json(); } catch {}
         throw Routing.quotaError(upstream.status, data, upstream.headers);
       }
       const isStream = provider.authType === 'chatgpt-subscription' || upstream.headers.get("content-type")?.includes("text/event-stream");
-      isLiveStream = body.stream && isStream;
+      isLiveStream = body.stream && isStream && !operator.buffer;
       // The native model validator requests JSON; plan inference requires SSE.
       // Consume its stream fully before delivering the buffered native response.
       const bufferedSink = { get destroyed() { return res.destroyed; }, write() {}, end() {} };
@@ -645,9 +700,13 @@ async function startGateway({
             upstream,
             provider.protocol,
             body.model,
-            body.stream ? gated : bufferedSink,
+            isLiveStream ? gated : bufferedSink,
           )
         : responseFor(await upstream.json(), provider.protocol, body.model);
+      }
+      if (operator.buffer) {
+        result = await operator.resolve(result);
+        controller.signal.throwIfAborted();
       }
       status.actualSpeed = Speed.actualSpeed(result);
       onStatus({...status});
@@ -719,8 +778,9 @@ async function startGateway({
     catalog: () => modelCatalog(store),
     routes: () => catalog(store),
     resetHealth: id => { for(const key of Object.keys(health)) if(key===id || key.startsWith(id+':')) delete health[key]; onStatus({ health: { ...health } }); },
-    disconnectProvider: id => { disconnected.add(id); for (const [controller, provider] of activeProviders) if (provider === id) controller.abort(); },
-    abortProvider: id => { for (const [controller, provider] of activeProviders) if (provider === id) controller.abort(); },
+    reconnectProvider: id => { disconnected.delete(id); for(const key of Object.keys(health)) if(key===id||key.startsWith(id+':')) delete health[key]; onStatus({health:{...health}}); },
+    disconnectProvider: id => { disconnected.add(id); for (const [controller, provider] of [...activeProviders, ...activeVisionProviders]) if (provider === id) controller.abort(); },
+    abortProvider: id => { for (const [controller, provider] of [...activeProviders, ...activeVisionProviders]) if (provider === id) controller.abort(); },
     close: () => {
       for (const c of active) c.abort();
       server.close();

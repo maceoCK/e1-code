@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 if (location.protocol === 'app:' && location.hostname === 'localhost') {
+  contextBridge.exposeInMainWorld('e1PlanUsage',Object.freeze({read:providerId=>ipcRenderer.invoke('e1:plan:usage',providerId),choices:input=>ipcRenderer.invoke('e1:plan:choices',input),select:input=>ipcRenderer.invoke('e1:plan:select',input)}));
   contextBridge.exposeInMainWorld('e1ModelBrowser',Object.freeze({
     read:()=>ipcRenderer.invoke('e1:models:read'),
     save:value=>ipcRenderer.invoke('e1:models:save',value),

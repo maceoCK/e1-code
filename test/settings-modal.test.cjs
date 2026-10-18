@@ -1,0 +1,67 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const {EventEmitter}=require('node:events');const {chromium}=require('playwright');
+const {nativeFixture,available}=require('./native-ui-fixture.cjs');
+const {installSettings}=require('../src/settings-native.cjs');const {startServer}=require('../src/server.cjs');
+test('Settings pages preserve trusted IPC, account actions, order persistence and theme',{skip:!available},async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'e1-modal-'));let pending=[];
+ const subscriptionAccounts=[{id:'one',label:'ChatGPT 1',email:'fixture@example.test',connected:true,planEnabled:true,mode:'codex'}];
+ const subscriptions={snapshot:()=>({available:true,welcomeAcknowledged:true,accounts:subscriptionAccounts,pending}),providers:()=>subscriptionAccounts.map(a=>({id:'chatgpt-'+a.id,accountId:a.id,name:a.label,authType:'chatgpt-subscription',protocol:'responses',signedIn:true,models:[]})),update:(id,v)=>Object.assign(subscriptionAccounts.find(a=>a.id===id),v),begin:async id=>{assert.equal(id,'one');pending=[{id:'login',status:'waiting'}];return{id:'login'};},cancel:async()=>{pending[0].status='cancelled';return{};}};
+ const claudeRows=[{id:'console',label:'Imported Console',method:'console',existing:true,connected:true},{id:'max',label:'Claude Max',method:'claudeai',email:'person@example.test',subscriptionType:'max',connected:true},{id:'other',label:'Claude 3',method:'claudeai',email:'person@example.test',subscriptionType:'max',connected:true}];
+ const claudeAccounts={snapshot:()=>({available:true,pending:[],accounts:claudeRows}),providers:()=>claudeRows.map(a=>({id:'claude-code-'+a.id,accountId:a.id,name:a.label,authType:'claude-code',protocol:'claude-code',signedIn:true,models:[]})),update:(id,v)=>Object.assign(claudeRows.find(a=>a.id===id),v)};
+ const service=await startServer({dataDir:dir,settingsOnly:true,subscriptions,claudeAccounts});t.after(()=>{service.close();fs.rmSync(dir,{recursive:true,force:true});});
+ const app=new EventEmitter();app.whenReady=async()=>{};let handler;const sent=[];
+ const renderer={isDestroyed:()=>false,getURL:()=> 'app://localhost/epitaxy',focus(){},send:(...v)=>sent.push(v),session:{registerPreloadScript(){}},mainFrame:{url:'app://localhost/epitaxy'},ipc:{handle:(_key,fn)=>handler=fn}};
+ const modal=installSettings({app,shell:{openExternal:async()=>{}}},()=>({isDestroyed:()=>false,isMinimized:()=>false,show(){},focus(){},contentView:{children:[{webContents:renderer}]}}),()=>service);app.emit('web-contents-created',{},renderer);
+ await assert.rejects(handler({senderFrame:{url:'https://evil.test'}},'assets'),/Invalid settings sender/);
+ const request=(op,args)=>handler({senderFrame:renderer.mainFrame},op,args);
+ await assert.rejects(request('api',{route:'chat/new',data:{}}),/Unknown settings request/);
+ await modal.open();assert.deepEqual(sent,[['e1:settings:show','models']]);
+ const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage({viewport:{width:1200,height:950}});page.setDefaultTimeout(5000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await nativeFixture(page,'<div class="cds-root" data-mode="dark"><main aria-label="Primary pane"><button id="trigger">Manage connection</button></main></div>');
+ await page.exposeFunction('settingsRequest',request);
+ await page.evaluate(()=>{window.overlays=[];window.e1Settings={request:window.settingsRequest,onShow:cb=>window.openSettings=cb};window.e1NewTab={overlay:async(...args)=>window.overlays.push(args)};});
+ await page.addScriptTag({path:path.resolve(__dirname,'../src/ui/settings/app.js')});
+ await page.route('https://native.test/assets/v1/e1-settings-pages.js',r=>r.fulfill({path:path.resolve(__dirname,'../src/native-settings-pages.js'),contentType:'text/javascript'}));
+ await page.evaluate(async()=>{const {aa:h,sa:createRoot}=await import('/assets/v1/vendor-frame-Bk3oL3Qp.js'),panels=await import('/assets/v1/e1-settings-pages.js');const host=document.createElement('div');host.id='settings-fixture';document.querySelector('.cds-root').append(host);const root=createRoot(host);window.showSettingsPage=name=>root.render(h(panels[name],{}));window.showSettingsPage('Accounts');});
+ const popup=page.locator('#settings-fixture');await popup.getByText('fixture@example.test · Connected',{exact:true}).waitFor();
+ assert.equal(await popup.getByText('person@example.test',{exact:true}).count(),2);
+ assert.equal(await popup.getByText('Max subscription · Connected',{exact:true}).count(),2);
+ await popup.getByText('Account identity unavailable',{exact:true}).waitFor();
+ await popup.getByText(/Imported from Claude Code/).waitFor();
+ assert.equal(await popup.getByText(/Same email on another connection/).count(),2);
+ assert.equal(await page.locator('iframe').count(),0);assert.equal(await page.locator('[role=dialog]').count(),0);
+ assert.equal(await popup.locator('#settings-status').innerText(),'');
+ const dark=await popup.locator('[data-e1-settings-body]').evaluate(n=>getComputedStyle(n).color);
+ await page.evaluate(()=>document.querySelector('.cds-root').setAttribute('data-mode','light'));
+ await page.waitForFunction(dark=>getComputedStyle(document.querySelector('[data-e1-settings-body]')).color!==dark,dark);
+ assert.equal(await popup.getByText('Connections to try',{exact:true}).isVisible(),false);
+ await page.evaluate(()=>window.showSettingsPage('Usage'));await popup.getByText('Connections to try',{exact:true}).waitFor();assert.equal(await popup.getByText('Connections to try',{exact:true}).isVisible(),true);
+
+ const rows=()=>popup.locator('.route-row [data-route]').evaluateAll(ns=>ns.map(n=>n.dataset.route));
+ const before=await rows();assert.ok(before.length>=2);
+ await popup.locator('.route-row [data-route]').evaluateAll(ns=>ns.forEach(n=>n.checked=true));
+ await popup.locator('.route-row').nth(1).locator('[data-up]').click();
+ assert.deepEqual((await rows()).slice(0,2),[before[1],before[0]]);
+ await popup.locator('.route-row').first().locator('[data-down]').click();assert.deepEqual(await rows(),before);
+ await popup.locator('.route-row').nth(1).locator('[data-up]').click();const changed=await rows();
+ await popup.getByRole('button',{name:'Save changes',exact:true}).click();await popup.getByText('Changes saved.',{exact:true}).waitFor();
+ assert.deepEqual((await request('api',{route:'state'})).routing.order,changed);
+ await page.evaluate(()=>window.showSettingsPage('Accounts'));await popup.getByText('fixture@example.test · Connected',{exact:true}).waitFor();
+ await popup.getByLabel('Manage ChatGPT 1',{exact:true}).click();await page.keyboard.press('Escape');assert.equal(await popup.isVisible(),true);assert.equal(await popup.getByRole('button',{name:'Reconnect',exact:true}).count(),0);
+ await popup.getByLabel('Manage ChatGPT 1',{exact:true}).click();
+ await popup.getByRole('button',{name:'Reconnect',exact:true}).click();await popup.getByRole('button',{name:'Cancel sign-in'}).waitFor();
+ await popup.getByRole('button',{name:'Cancel sign-in'}).click();
+ for(const [oldLabel,newLabel] of [['ChatGPT 1','Personal ChatGPT'],['Claude Max','Work Claude']]) {
+   await popup.getByLabel('Manage '+oldLabel,{exact:true}).click();
+   await popup.getByRole('button',{name:'Rename',exact:true}).click();
+   await popup.getByRole('textbox',{name:'Account label',exact:true}).fill(newLabel);
+   await popup.getByRole('button',{name:'Save',exact:true}).click();
+   await popup.getByLabel('Manage '+newLabel,{exact:true}).waitFor();
+ }
+ assert.equal(subscriptionAccounts[0].label,'Personal ChatGPT');assert.equal(claudeRows[1].label,'Work Claude');
+
+ await page.evaluate(()=>window.showSettingsPage('Models'));await popup.getByLabel('Connection name').waitFor();
+ await page.evaluate(()=>window.showSettingsPage('Accounts'));await popup.getByLabel('Manage Work Claude',{exact:true}).waitFor();await popup.getByLabel('Manage Personal ChatGPT',{exact:true}).waitFor();
+ await page.evaluate(()=>window.showSettingsPage('Usage'));await popup.getByText('Connections to try',{exact:true}).waitFor();assert.deepEqual(await rows(),changed);
+ await page.setViewportSize({width:560,height:800});assert.equal(await popup.evaluate(n=>n.scrollWidth<=n.clientWidth),true);assert.deepEqual(errors,[]);
+});

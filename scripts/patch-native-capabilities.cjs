@@ -9,7 +9,10 @@ module.exports = function patchNativeCapabilities(capture, stage) {
   if (original.split(needle).length !== 2) throw Error("Native thinking resolver changed; review capability patch before building.");
   const outputNeedle = "thinking:nw(t,n.id,e)";
   if (original.split(outputNeedle).length !== 2) throw Error("Native catalog output changed; review Ultracode integration before building.");
+  const pickerNeedle = "i=gTr(MMe(e));return{...r?.length";
+  if (original.split(pickerNeedle).length !== 2) throw Error("Native managed model settings changed; review model picker integration before building.");
   const patched = original.replace(needle, needle + 'const asterThinking=require("../../aster/model-effort.cjs").nativeThinking(e);if(asterThinking)return asterThinking;')
-    .replace(outputNeedle, 'thinking:require("../../aster/model-effort.cjs").withUltracode(t,n.id,nw(t,n.id,e))');
+    .replace(outputNeedle, 'thinking:require("../../aster/model-effort.cjs").withUltracode(t,n.id,nw(t,n.id,e))')
+    .replace(pickerNeedle, 'i=gTr(MMe(e));return{...require("../../aster/model-picker.cjs").nativePicker(e.models?.list,n),...r?.length');
   fs.writeFileSync(path.join(stage, file), patched);
 };

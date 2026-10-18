@@ -46,7 +46,7 @@ function normalizeResult(result, body) {
 }
 function generate(provider, body, model, signal, onBilling = () => {}, launch = spawn) {
   if (!provider.signedIn) return Promise.reject(Error('Connect this Claude Code account in Accounts & billing.'));
-  if(body.speed==='fast' && (provider.billingMethod!=='console' || !require('./speed-preferences.cjs').modesFor(model).includes('fast')))
+  if(body.speed==='fast' && (provider.billingMethod!=='console' || !require('./speed-preferences.cjs').modesFor(model.replace(/\[1m\]$/i, '')).includes('fast')))
     return Promise.reject(Error('Fast mode requires a supported model and an approved Console API connection.'));
   const content = inputFor(body);
   return new Promise((resolve, reject) => {

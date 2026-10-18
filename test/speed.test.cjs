@@ -35,7 +35,7 @@ test('gateway switches only the opted-in chat to paid speed and reports delivere
     const calls=[],statuses=[];
     const gateway=await G.startGateway({store:f.store,onStatus:s=>statuses.push({...s}),transport:async(url,opts)=>{
       const body=JSON.parse(opts.body);calls.push({url,headers:opts.headers,body});
-      return new Response(JSON.stringify(claude?{content:[{type:'text',text:'OK'}],usage:{input_tokens:1,output_tokens:1,speed:'fast'},stop_reason:'end_turn'}:{output:[{type:'message',content:[{type:'output_text',text:'OK'}]}],service_tier:'ultrafast',usage:{input_tokens:1,output_tokens:1}}),{headers:{'content-type':'application/json'}});
+      return new Response(JSON.stringify(claude?{content:[{type:'text',text:'OK'}],usage:{input_tokens:1,output_tokens:1,speed:'fast'},stop_reason:'end_turn'}:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:'OK'}]}],service_tier:'ultrafast',usage:{input_tokens:1,output_tokens:1}}),{headers:{'content-type':'application/json'}});
     }});
     try{
       const history=[{role:'user',content:'KEEP_HISTORY'}];

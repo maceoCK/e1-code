@@ -46,7 +46,18 @@ class Store {
     this.savedChats = JSON.stringify(this.data.chats);
     this.save();
   }
+  get subscriptions() { return this._subscriptions; }
+  set subscriptions(manager) { this._subscriptions=manager; this.save(); }
+  get claudeAccounts() { return this._claudeAccounts; }
+  set claudeAccounts(manager) { this._claudeAccounts = manager; this.save(); }
+  resolveProviderId(id) { return this.claudeAccounts?.resolveProviderId?.(this.subscriptions?.resolveProviderId?.(id) || id) || this.subscriptions?.resolveProviderId?.(id) || id; }
+  normalizeSubscriptionReferences() {
+    const resolve=id=>this.resolveProviderId(id);
+    if(this.data.selection)this.data.selection.provider=resolve(this.data.selection.provider);
+    if(this.data.routing?.order)this.data.routing.order=[...new Set(this.data.routing.order.map(resolve))];
+  }
   save() {
+    this.normalizeSubscriptionReferences();
     const serialized = JSON.stringify(this.data.chats);
     if (serialized !== this.savedChats) {
       const disk = readJson(this.historyFile, { chats: [] });
@@ -82,6 +93,7 @@ class Store {
     };
   }
   snapshot() {
+    this.normalizeSubscriptionReferences();
     return {
       ...this.data,
       providers: [...this.data.providers.map((p) => this.publicProvider(p)), ...(this.subscriptions?.providers() || []), ...(this.claudeAccounts?.providers() || [])],
@@ -89,6 +101,7 @@ class Store {
     };
   }
   provider(id) {
+    id=this.resolveProviderId(id);
     const p = this.data.providers.find((p) => p.id === id) || this.subscriptions?.providers().find(p => p.id === id) || this.claudeAccounts?.providers().find(p => p.id === id);
     if (!p) throw Error("Provider not found.");
     return p;
@@ -115,6 +128,7 @@ class Store {
     return resolveKey(p, stored);
   }
   setProvider(input) {
+    input = {...input, id: this.resolveProviderId(input.id)};
     const claude = this.claudeAccounts?.providers().find(p => p.id === input.id);
     if (claude) {
       if (input.apiKey || input.clearKey || (input.protocol !== undefined && input.protocol !== claude.protocol) || (input.baseUrl !== undefined && input.baseUrl !== claude.baseUrl))

@@ -6,7 +6,7 @@
   const controls=new Map(), names={standard:'Standard',fast:'Fast',ultrafast:'Ultrafast'};
   function context(picker) {
     const name=(picker.getAttribute('aria-label')?.replace(/^Model:\s*/,'')||picker.textContent).trim();
-    const model=state?.models.find(m=>m.name===name);
+    const model=window.E1ModelList.resolvePickerModel(state?.models,name);
     const pane=picker.closest('.dframe-pane, [aria-label="Primary pane"], [aria-label="Secondary pane"]');
     const ids=[...new Set([picker.closest('[data-session-id]')?.getAttribute('data-session-id'),
       ...[...(pane?.querySelectorAll('[data-session-id]')||[])].map(el=>el.getAttribute('data-session-id'))].filter(Boolean))];
@@ -26,8 +26,8 @@
           id:'speed',title:'Inference speed',description:ctx.chatId?'For this chat · '+model.name:'Default for chats using '+model.name,
           values:{mode:model.modes.includes(pref.mode)?pref.mode:'standard',apiProvider:model.connections.some(c=>c.id===pref.apiProvider)?pref.apiProvider:model.connections[0]?.id||''},
           fields:v=>[
-            {name:'mode',label:'Speed',items:model.modes.map(value=>({value,label:names[value]}))},
-            {name:'apiProvider',label:'API connection',hidden:!paid(v),disabled:!model.connections.length,items:model.connections.map(c=>({value:c.id,label:c.name}))},
+            {name:'mode',label:'Speed',presentation:'choices',items:model.modes.map(value=>({value,label:names[value]}))},
+            {name:'apiProvider',label:'API connection',presentation:'choices',rows:true,hidden:!paid(v),disabled:!model.connections.length,items:model.connections.map(c=>({value:c.id,label:c.name}))},
           ],
           note:v=>!paid(v)
             ? model.modes.length===1?'This model supports Standard speed here. Claude Fast requires a supported Opus model. Your model will not be changed automatically.':'Standard restores your normal account-routing settings, including your configured API fallback.'
@@ -61,5 +61,6 @@
   }
   function schedule(){if(!scheduled){scheduled=true;setTimeout(render,80);}}
   const observer=new MutationObserver(schedule);
-  api.read().then(value=>{state=value;schedule();}).catch(()=>{});
+  const reload=()=>api.read().then(value=>{state=value;schedule();}).catch(()=>{});
+  window.addEventListener('e1-routing-changed',reload);reload();
 })();

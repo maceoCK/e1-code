@@ -51,6 +51,8 @@ test('model and sidebar billing remain scoped across split panes, switches and r
     </div><div class="dframe-pane"><div data-session-id="local_${a}"><button id="model-a" data-testid="epitaxy-cds-model-selector" aria-label="Model: OpenAI · GPT">GPT</button><button>Effort: High</button></div></div>
       <div class="dframe-pane"><div data-session-id="local_${b}"><button id="model-b" data-testid="epitaxy-cds-model-selector" aria-label="Model: Claude Max · Sonnet">Sonnet</button></div></div>`);
     await page.addScriptTag({ path: path.join(__dirname, '../src/recovered-branding.js') });
+    // Built pages load the shared model resolver alongside the billing adapter.
+    await page.addScriptTag({ path: path.join(__dirname, '../src/model-list.js') });
     await page.addScriptTag({ path: path.join(__dirname, '../src/billing-indicator.js') });
     await page.evaluate(() => {
       const state = { preferences: { chats: {}, models: {} }, models: [
@@ -81,9 +83,9 @@ test('model and sidebar billing remain scoped across split panes, switches and r
     assert.match(await tooltip.innerText(),/automatic fallback/);
     assert.doesNotMatch(await tooltip.innerText(),/first@example.test/);
     await page.mouse.move(900,700);
-    assert.equal(await tooltip.isVisible(),false);
+    await tooltip.waitFor({state:'hidden'});assert.equal(await tooltip.isVisible(),false);
     await planChip.focus(); assert.equal(await tooltip.isVisible(),true);
-    await page.keyboard.press('Escape'); assert.equal(await tooltip.isVisible(),false);
+    await page.keyboard.press('Escape'); await tooltip.waitFor({state:'hidden'});assert.equal(await tooltip.isVisible(),false);
     state.chats[0].running = false; await send();
     await page.waitForFunction(() => !document.querySelector('#row-a .e1-billing-chip'));
     assert.equal(await page.locator('#row-b .e1-billing-chip').innerText(), 'Plan');

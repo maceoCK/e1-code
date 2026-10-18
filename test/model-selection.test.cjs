@@ -55,7 +55,8 @@ test('gateway accepts old account model IDs but advertises only models and sends
       const res = await fetch(gateway.origin + '/v1/messages', { method: 'POST', headers, body: JSON.stringify({ model, messages }) });
       assert.equal(res.status, 200, await res.text());
     }
-    assert.deepEqual(observed, [['max', 'claude-opus-5-5', messages], ['max', 'claude-opus-5-5', messages]]);
+    // Verified 1M-capable account routes pass the native opt-in suffix to the inner CLI.
+    assert.deepEqual(observed, [['max', 'claude-opus-5-5[1m]', messages], ['max', 'claude-opus-5-5[1m]', messages]]);
   } finally { gateway.close(); E.generate = original; }
 });
 test('native model migration is idempotent and preserves every other metadata field and transcript byte', () => {
@@ -68,7 +69,8 @@ test('native model migration is idempotent and preserves every other metadata fi
     fs.writeFileSync(file + 'l', 'transcript bytes\n');
     const models = G.modelCatalog(fixture());
     assert.deepEqual(migrateSelections(profile, models), [relative]);
-    assert.deepEqual(JSON.parse(fs.readFileSync(file)), { ...before, model: models[0].id });
+    // Code selections of 1M-capable routes also gain the native opt-in suffix.
+    assert.deepEqual(JSON.parse(fs.readFileSync(file)), { ...before, model: models[0].id + '[1m]' });
     assert.equal(fs.readFileSync(file + 'l', 'utf8'), 'transcript bytes\n');
     assert.equal(fs.readFileSync(path.join(profile, 'model-selection-backups', relative), 'utf8'), raw);
     assert.deepEqual(migrateSelections(profile, models), []);

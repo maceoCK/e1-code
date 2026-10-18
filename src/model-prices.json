@@ -1,0 +1,737 @@
+{
+  "verifiedAt": "2026-10-08",
+  "openai": {
+    "gpt-6-astra": {
+      "standard": {
+        "rates": {
+          "input": 10.0,
+          "cachedInput": 1.0,
+          "cacheWrite": 12.5,
+          "output": 50.0
+        },
+        "longRates": {
+          "input": 20.0,
+          "cachedInput": 2.0,
+          "cacheWrite": 25.0,
+          "output": 75.0
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 20.0,
+          "cachedInput": 2.0,
+          "cacheWrite": 25.0,
+          "output": 100.0
+        },
+        "longRates": {
+          "input": 40.0,
+          "cachedInput": 4.0,
+          "cacheWrite": 50.0,
+          "output": 150.0
+        },
+        "threshold": 272000
+      },
+      "ultrafast": {
+        "rates": {
+          "input": 60.0,
+          "cachedInput": 6.0,
+          "cacheWrite": 75.0,
+          "output": 300.0
+        },
+        "longRates": {
+          "input": 120.0,
+          "cachedInput": 12.0,
+          "cacheWrite": 150.0,
+          "output": 450.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-6.1-sol": {
+      "standard": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": 0.1,
+          "cacheWrite": 2.5,
+          "output": 10.0
+        },
+        "longRates": {
+          "input": 4.0,
+          "cachedInput": 0.2,
+          "cacheWrite": 5.0,
+          "output": 15.0
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 4.0,
+          "cachedInput": 0.2,
+          "cacheWrite": 5.0,
+          "output": 20.0
+        },
+        "longRates": {
+          "input": 8.0,
+          "cachedInput": 0.4,
+          "cacheWrite": 10.0,
+          "output": 30.0
+        },
+        "threshold": 272000
+      },
+      "ultrafast": {
+        "rates": {
+          "input": 12.0,
+          "cachedInput": 0.6,
+          "cacheWrite": 15.0,
+          "output": 60.0
+        },
+        "longRates": {
+          "input": 24.0,
+          "cachedInput": 1.2,
+          "cacheWrite": 30.0,
+          "output": 90.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-6-luna": {
+      "standard": {
+        "rates": {
+          "input": 0.1,
+          "cachedInput": 0.01,
+          "cacheWrite": 0.125,
+          "output": 0.5
+        },
+        "longRates": {
+          "input": 0.2,
+          "cachedInput": 0.02,
+          "cacheWrite": 0.25,
+          "output": 0.75
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 0.2,
+          "cachedInput": 0.02,
+          "cacheWrite": 0.25,
+          "output": 1.0
+        },
+        "longRates": {
+          "input": 0.4,
+          "cachedInput": 0.04,
+          "cacheWrite": 0.5,
+          "output": 1.5
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-6-sol": {
+      "standard": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": 0.2,
+          "cacheWrite": 2.5,
+          "output": 10.0
+        },
+        "longRates": {
+          "input": 4.0,
+          "cachedInput": 0.4,
+          "cacheWrite": 5.0,
+          "output": 15.0
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 4.0,
+          "cachedInput": 0.4,
+          "cacheWrite": 5.0,
+          "output": 20.0
+        },
+        "longRates": {
+          "input": 8.0,
+          "cachedInput": 0.8,
+          "cacheWrite": 10.0,
+          "output": 30.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-5.6-sol": {
+      "standard": {
+        "rates": {
+          "input": 4.0,
+          "cachedInput": 0.4,
+          "cacheWrite": 5.0,
+          "output": 20.0
+        },
+        "longRates": {
+          "input": 8.0,
+          "cachedInput": 0.8,
+          "cacheWrite": 10.0,
+          "output": 30.0
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 8.0,
+          "cachedInput": 0.8,
+          "cacheWrite": 10.0,
+          "output": 40.0
+        },
+        "longRates": {
+          "input": 16.0,
+          "cachedInput": 1.6,
+          "cacheWrite": 20.0,
+          "output": 60.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-5.6-terra": {
+      "standard": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": 0.2,
+          "cacheWrite": 2.5,
+          "output": 12.0
+        },
+        "longRates": {
+          "input": 4.0,
+          "cachedInput": 0.4,
+          "cacheWrite": 5.0,
+          "output": 18.0
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 4.0,
+          "cachedInput": 0.4,
+          "cacheWrite": 5.0,
+          "output": 24.0
+        },
+        "longRates": {
+          "input": 8.0,
+          "cachedInput": 0.8,
+          "cacheWrite": 10.0,
+          "output": 36.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-5.6-luna": {
+      "standard": {
+        "rates": {
+          "input": 0.2,
+          "cachedInput": 0.02,
+          "cacheWrite": 0.25,
+          "output": 1.2
+        },
+        "longRates": {
+          "input": 0.4,
+          "cachedInput": 0.04,
+          "cacheWrite": 0.5,
+          "output": 1.8
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 0.4,
+          "cachedInput": 0.04,
+          "cacheWrite": 0.5,
+          "output": 2.4
+        },
+        "longRates": {
+          "input": 0.8,
+          "cachedInput": 0.08,
+          "cacheWrite": 1.0,
+          "output": 3.6
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-5.5": {
+      "standard": {
+        "rates": {
+          "input": 5.0,
+          "cachedInput": 0.5,
+          "cacheWrite": null,
+          "output": 30.0
+        },
+        "longRates": {
+          "input": 10.0,
+          "cachedInput": 1.0,
+          "cacheWrite": null,
+          "output": 45.0
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 12.5,
+          "cachedInput": 1.25,
+          "cacheWrite": null,
+          "output": 75.0
+        }
+      }
+    },
+    "gpt-5.5-pro": {
+      "standard": {
+        "rates": {
+          "input": 30.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 180.0
+        },
+        "longRates": {
+          "input": 60.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 270.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-5.4": {
+      "standard": {
+        "rates": {
+          "input": 2.5,
+          "cachedInput": 0.25,
+          "cacheWrite": null,
+          "output": 15.0
+        },
+        "longRates": {
+          "input": 5.0,
+          "cachedInput": 0.5,
+          "cacheWrite": null,
+          "output": 22.5
+        },
+        "threshold": 272000
+      },
+      "fast": {
+        "rates": {
+          "input": 5.0,
+          "cachedInput": 0.5,
+          "cacheWrite": null,
+          "output": 30.0
+        }
+      }
+    },
+    "gpt-5.4-mini": {
+      "standard": {
+        "rates": {
+          "input": 0.75,
+          "cachedInput": 0.075,
+          "cacheWrite": null,
+          "output": 4.5
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 1.5,
+          "cachedInput": 0.15,
+          "cacheWrite": null,
+          "output": 9.0
+        }
+      }
+    },
+    "gpt-5.4-nano": {
+      "standard": {
+        "rates": {
+          "input": 0.2,
+          "cachedInput": 0.02,
+          "cacheWrite": null,
+          "output": 1.25
+        }
+      }
+    },
+    "gpt-5.4-pro": {
+      "standard": {
+        "rates": {
+          "input": 30.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 180.0
+        },
+        "longRates": {
+          "input": 60.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 270.0
+        },
+        "threshold": 272000
+      }
+    },
+    "gpt-5.2": {
+      "standard": {
+        "rates": {
+          "input": 1.75,
+          "cachedInput": 0.175,
+          "cacheWrite": null,
+          "output": 14.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 3.5,
+          "cachedInput": 0.35,
+          "cacheWrite": null,
+          "output": 28.0
+        }
+      }
+    },
+    "gpt-5.2-pro": {
+      "standard": {
+        "rates": {
+          "input": 21.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 168.0
+        }
+      }
+    },
+    "gpt-5.1": {
+      "standard": {
+        "rates": {
+          "input": 1.25,
+          "cachedInput": 0.125,
+          "cacheWrite": null,
+          "output": 10.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 2.5,
+          "cachedInput": 0.25,
+          "cacheWrite": null,
+          "output": 20.0
+        }
+      }
+    },
+    "gpt-5": {
+      "standard": {
+        "rates": {
+          "input": 1.25,
+          "cachedInput": 0.125,
+          "cacheWrite": null,
+          "output": 10.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 2.5,
+          "cachedInput": 0.25,
+          "cacheWrite": null,
+          "output": 20.0
+        }
+      }
+    },
+    "gpt-5-mini": {
+      "standard": {
+        "rates": {
+          "input": 0.25,
+          "cachedInput": 0.025,
+          "cacheWrite": null,
+          "output": 2.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 0.45,
+          "cachedInput": 0.045,
+          "cacheWrite": null,
+          "output": 3.6
+        }
+      }
+    },
+    "gpt-5-nano": {
+      "standard": {
+        "rates": {
+          "input": 0.05,
+          "cachedInput": 0.005,
+          "cacheWrite": null,
+          "output": 0.4
+        }
+      }
+    },
+    "gpt-5-pro": {
+      "standard": {
+        "rates": {
+          "input": 15.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 120.0
+        }
+      }
+    },
+    "gpt-4.1": {
+      "standard": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": 0.5,
+          "cacheWrite": null,
+          "output": 8.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 3.5,
+          "cachedInput": 0.875,
+          "cacheWrite": null,
+          "output": 14.0
+        }
+      }
+    },
+    "gpt-4.1-mini": {
+      "standard": {
+        "rates": {
+          "input": 0.4,
+          "cachedInput": 0.1,
+          "cacheWrite": null,
+          "output": 1.6
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 0.7,
+          "cachedInput": 0.175,
+          "cacheWrite": null,
+          "output": 2.8
+        }
+      }
+    },
+    "gpt-4.1-nano": {
+      "standard": {
+        "rates": {
+          "input": 0.1,
+          "cachedInput": 0.025,
+          "cacheWrite": null,
+          "output": 0.4
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 0.2,
+          "cachedInput": 0.05,
+          "cacheWrite": null,
+          "output": 0.8
+        }
+      }
+    },
+    "gpt-4o": {
+      "standard": {
+        "rates": {
+          "input": 2.5,
+          "cachedInput": 1.25,
+          "cacheWrite": null,
+          "output": 10.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 4.25,
+          "cachedInput": 2.125,
+          "cacheWrite": null,
+          "output": 17.0
+        }
+      }
+    },
+    "gpt-4o-2024-05-13": {
+      "standard": {
+        "rates": {
+          "input": 5.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 15.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 8.75,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 26.25
+        }
+      }
+    },
+    "gpt-4o-mini": {
+      "standard": {
+        "rates": {
+          "input": 0.15,
+          "cachedInput": 0.075,
+          "cacheWrite": null,
+          "output": 0.6
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 0.25,
+          "cachedInput": 0.125,
+          "cacheWrite": null,
+          "output": 1.0
+        }
+      }
+    },
+    "o1": {
+      "standard": {
+        "rates": {
+          "input": 15.0,
+          "cachedInput": 7.5,
+          "cacheWrite": null,
+          "output": 60.0
+        }
+      }
+    },
+    "o1-pro": {
+      "standard": {
+        "rates": {
+          "input": 150.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 600.0
+        }
+      }
+    },
+    "o3-pro": {
+      "standard": {
+        "rates": {
+          "input": 20.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 80.0
+        }
+      }
+    },
+    "o3": {
+      "standard": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": 0.5,
+          "cacheWrite": null,
+          "output": 8.0
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 3.5,
+          "cachedInput": 0.875,
+          "cacheWrite": null,
+          "output": 14.0
+        }
+      }
+    },
+    "o4-mini": {
+      "standard": {
+        "rates": {
+          "input": 1.1,
+          "cachedInput": 0.275,
+          "cacheWrite": null,
+          "output": 4.4
+        }
+      },
+      "fast": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": 0.5,
+          "cacheWrite": null,
+          "output": 8.0
+        }
+      }
+    },
+    "o3-mini": {
+      "standard": {
+        "rates": {
+          "input": 1.1,
+          "cachedInput": 0.55,
+          "cacheWrite": null,
+          "output": 4.4
+        }
+      }
+    },
+    "gpt-4-turbo-2024-04-09": {
+      "standard": {
+        "rates": {
+          "input": 10.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 30.0
+        }
+      }
+    },
+    "gpt-4-0613": {
+      "standard": {
+        "rates": {
+          "input": 30.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 60.0
+        }
+      }
+    },
+    "gpt-3.5-turbo": {
+      "standard": {
+        "rates": {
+          "input": 0.5,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 1.5
+        }
+      }
+    },
+    "gpt-3.5-turbo-0125": {
+      "standard": {
+        "rates": {
+          "input": 0.5,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 1.5
+        }
+      }
+    },
+    "gpt-3.5-turbo-1106": {
+      "standard": {
+        "rates": {
+          "input": 1.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 2.0
+        }
+      }
+    },
+    "gpt-3.5-turbo-instruct": {
+      "standard": {
+        "rates": {
+          "input": 1.5,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 2.0
+        }
+      }
+    },
+    "davinci-002": {
+      "standard": {
+        "rates": {
+          "input": 2.0,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 2.0
+        }
+      }
+    },
+    "babbage-002": {
+      "standard": {
+        "rates": {
+          "input": 0.4,
+          "cachedInput": null,
+          "cacheWrite": null,
+          "output": 0.4
+        }
+      }
+    }
+  }
+}

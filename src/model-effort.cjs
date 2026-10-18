@@ -42,7 +42,7 @@ function nativeEngineCapabilities(routes, existing = "") {
 }
 let nativeRoutes = new Map();
 function registerNativeRoutes(routes) {
-  nativeRoutes = new Map(routes.map(route => [route.id, route]));
+  nativeRoutes = new Map(routes.flatMap(route => [route.id, ...(route.aliases || [])].map(id => [id, route])));
 }
 function nativeThinking(alias) {
   const route = nativeRoutes.get(alias);

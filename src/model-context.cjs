@@ -3,7 +3,7 @@
 function installModelContext(ipc, routes, onApplied = () => {}) {
   const limits = Object.fromEntries(routes
     .filter(route => Number.isSafeInteger(route.meta?.contextWindow) && route.meta.contextWindow > 0)
-    .map(route => [route.id, route.meta.contextWindow]));
+    .flatMap(route => [route.id, ...(route.aliases || [])].map(id => [id, route.meta.contextWindow])));
   if (!Object.keys(limits).length) return;
   const handle = ipc.handle.bind(ipc);
   ipc.handle = (channel, handler) => {

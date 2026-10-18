@@ -2,29 +2,29 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>E1 Code — Accounts &amp; models</title><link rel="icon" href="/logo.svg"><link rel="stylesheet" href="/style.css"></head><body>
 <header class="settings-heading"><img src="/logo.svg" alt="E1 Code"><div><h1>Accounts &amp; models</h1><p>One workspace. All your conversations.</p></div></header>
 <nav class="settings-tabs" role="tablist" aria-label="Settings">
-  <button id="accounts-tab" role="tab" aria-selected="true" aria-controls="accounts-panel" data-panel="accounts-panel">Accounts &amp; billing</button>
+  <button id="accounts-tab" role="tab" aria-selected="true" aria-controls="accounts-panel" data-panel="accounts-panel">Accounts</button>
   <button id="models-tab" role="tab" aria-selected="false" aria-controls="models-panel" tabindex="-1" data-panel="models-panel">Models &amp; connections</button>
+  <button id="usage-tab" role="tab" aria-selected="false" aria-controls="usage-panel" tabindex="-1" data-panel="usage-panel">Usage &amp; fallback</button>
 </nav>
 <main id="settings">
   <section id="accounts-panel" class="account-routing" role="tabpanel" aria-labelledby="accounts-tab">
-    <div class="account-heading"><div><h2>Use your ChatGPT plan</h2><p>Connect an account to use its available plan allowance in E1 Code.</p></div><button id="add-subscription" class="chatgpt-signin">Continue with ChatGPT</button></div>
-    <p class="signin-note">Sign in securely at auth.openai.com. E1 Code never sees your password.</p>
+    <div class="account-heading"><h2>ChatGPT</h2><button id="add-subscription" aria-label="Add ChatGPT account" class="add-account">Add account</button></div>
     <div id="subscription-list"></div>
     <div id="subscription-status" role="status" aria-live="polite"></div>
     <div class="claude-section">
-      <div class="account-heading"><div><h2>Run with your Claude account</h2><p>Use the official Claude Code installed on this Mac.</p></div><button id="add-claude">Add Claude account</button></div>
-      <p class="signin-note">Sign-in is handled by Claude Code. E1 Code never reads its credentials. <button id="existing-claude" class="link-button">Use existing Claude Code sign-in</button></p>
+      <div class="account-heading"><h2>Claude</h2><button id="add-claude" aria-label="Add Claude account" class="add-account">Add account</button></div>
       <div id="claude-list"></div><div id="claude-status" role="status" aria-live="polite"></div>
-      <details class="claude-note"><summary>Claude billing and other sign-in options</summary><p>Claude controls account eligibility, limits and billing. Account sign-in alone does not confirm that a request uses your plan allowance. Until confirmed by Claude, an amber <strong>Check Claude billing</strong> label stays visible. These connections require paid fallback to be allowed when routing automatically.</p><p>SDK and API usage may use separate credits. <a href="https://support.claude.com/en/articles/17154008-monthly-api-credits-for-max-and-team-plans" target="_blank" rel="noreferrer">Review Claude’s current billing rules ↗</a></p><button id="claude-console" class="link-button">Sign in with Claude Console instead</button></details>
+      <details class="claude-note"><summary>More sign-in options</summary><div class="signin-options"><button id="existing-claude" class="link-button">Use existing Claude Code sign-in</button><button id="claude-console" class="link-button">Sign in with Claude Console</button><p>Console accounts use API billing.</p></div></details>
     </div>
-    <p class="library-note">Your conversations live on this Mac. Adding or signing out of an account keeps the same chat library.</p>
-    <div class="routing-heading"><h2>When a connection reaches its limit</h2><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage ChatGPT usage ↗</a></div>
-    <label class="setting-row"><span><strong>Switch to another connection</strong><small>Try selected connections that offer the exact same model.</small></span><input type="checkbox" id="routing-enabled"></label>
-    <label class="setting-row"><span><strong>Allow paid API fallback</strong><small>After subscriptions, allow selected API and Claude-managed billing connections. Otherwise, pause.</small></span><input type="checkbox" id="routing-api"></label>
-    <div class="api-notice" id="api-notice" hidden><span class="billing-swatch" aria-hidden="true"></span><span>API usage is billed separately. Each API chat has an amber model outline and an API label. Running chats also show their billing source in the sidebar.</span></div>
-    <h3>Fallback connections</h3><p class="field-note">Subscriptions run first. Only connections offering the same model and version can take over. If none remain, use that model through an allowed API connection or pause.</p>
+  </section>
+  <section id="usage-panel" role="tabpanel" aria-labelledby="usage-tab" hidden>
+    <h2>When a limit is reached</h2><p class="section-note">Pause, or let another connection continue with the same model.</p>
+    <label class="setting-row"><span><strong>Switch connections automatically</strong><small>Use a connection selected below when the current one reaches its limit.</small></span><input type="checkbox" id="routing-enabled"></label>
+    <label class="setting-row"><span><strong>Allow paid API usage</strong><small>Use a selected API connection if no subscription is available. Charges apply.</small></span><input type="checkbox" id="routing-api"></label>
+    <div class="api-notice" id="api-notice" hidden><span class="billing-swatch" aria-hidden="true"></span><span>API usage is billed separately from your subscription.</span></div>
+    <h3>Connections to try</h3><p class="field-note">Subscriptions first, in the order below. E1 pauses if none can run the same model and version.</p>
     <div id="routing-pool"></div>
-    <div class="routing-footer"><p id="routing-status" role="status"></p><button id="save-routing" class="primary">Save routing</button></div>
+    <div class="routing-footer"><p id="routing-status" role="status"></p><button id="save-routing" class="primary">Save changes</button></div>
   </section>
   <section id="models-panel" role="tabpanel" aria-labelledby="models-tab" hidden>
       <div class="model-browser-setting"><label class="setting-row"><span><strong>Show legacy models</strong><small>Include older generations and dated snapshots in model pickers. Existing selections always remain available.</small></span><input type="checkbox" id="show-legacy-models"></label><p id="model-browser-status" role="status" aria-live="polite"></p></div>
@@ -126,5 +126,5 @@
       </div>
 </section>
 </main>
-<dialog id="plan-welcome" aria-labelledby="welcome-title"><img src="/logo.svg" alt="E1 Code"><h2 id="welcome-title">Your ChatGPT plan is connected</h2><p>Eligible requests can use your ChatGPT plan. Add this account to your routing connections or select it under Models &amp; connections.</p><p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage usage in ChatGPT ↗</a></p><button id="welcome-done" class="primary">Got it</button></dialog>
+<dialog id="plan-welcome" aria-labelledby="welcome-title"><img src="/logo.svg" alt="E1 Code"><h2 id="welcome-title">Your ChatGPT plan is connected</h2><p>Choose a model from this account to use your plan. Automatic switching is optional in Usage &amp; fallback.</p><p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage usage in ChatGPT ↗</a></p><button id="welcome-done" class="primary">Got it</button></dialog>
 <script src="/model-list.js"></script><script src="/app.js"></script></body></html>

@@ -72,8 +72,8 @@ async function prepareRecovered({ app, safeStorage }) {
       record();
     });
   });
-  // The gateway implements ordinary function calls, not Anthropic tool search.
-  process.env.ENABLE_TOOL_SEARCH = "false";
+  // Native gateway mode executes ToolSearch locally. Its result references are
+  // translated by our wire adapters; managed policy and explicit env overrides win.
   const vault = {
     encryptString: (s) => safeStorage.encryptString(s),
     decryptString: (b) => safeStorage.decryptString(b),
@@ -86,26 +86,28 @@ async function prepareRecovered({ app, safeStorage }) {
   store.claudeAccounts = require('./claude-accounts.cjs').claudeAccountsFor(store.dir, { openExternal: url => require('electron').shell.openExternal(url) });
   const billing = new (require('./billing-state.cjs').BillingState)({ profile: dir, file: path.join(store.dir, 'billing-chats.json') });
   const routing = require('./routing.cjs');
+  const {enrichPricing}=require('./model-pricing.cjs');
   const billingSnapshot = () => {
+    const planSelection=new (require('./plan-selection.cjs').PlanSelection)(store.dir);
     const routes = gateway.catalog(), health = require('./library-identity.cjs').readJson(path.join(store.dir, 'routing-health.json'), {});
     const policy = routing.policyFor(require('./library-identity.cjs').readJson(path.join(store.dir, 'workspace.json'), store.data).routing);
     const chats = billing.snapshot().map(status => {
-      try { return { ...routing.billingDetails(store.provider(status.provider)), ...status }; }
+      try { const p=store.provider(status.provider);return enrichPricing({ ...routing.billingDetails(p), ...status },p); }
       catch { return status; }
     });
     const Speed=require('./speed-preferences.cjs'), speedPreferences=new Speed.SpeedPreferences(store.dir).read();
-    return { version: 2, chats, speedPreferences, catalog: routes.map(selected => {
+    return { version: 2, chats, speedPreferences, planPreferences:planSelection.read(), planRoutes:gateway.routes().filter(r=>{const p=store.provider(r.provider);return routing.billingFor(p)==='subscription'&&p.signedIn===true;}).map(r=>{const p=store.provider(r.provider),h=health[p.id],paused=h&&(h.retryAt==null||h.retryAt>Date.now());return enrichPricing({billing:paused?'paused':'subscription',paused:!!paused,planProvider:p.id,provider:p.id,label:p.name,model:r.model,...routing.billingDetails(p)},p);}), catalog: routes.map(selected => {
       const route = routing.candidateRoutes(selected, gateway.routes(), store, policy, health)[0];
       const provider = route && store.provider(route.provider);
       const speedRoutes=Speed.apiRoutes(selected,gateway.routes(),store).map(r=>{
         const p=store.provider(r.provider);
-        return {billing:'api',provider:p.id,label:p.name,model:r.model,...routing.billingDetails(p)};
+        return enrichPricing({billing:'api',provider:p.id,label:p.name,model:r.model,...routing.billingDetails(p)},p);
       });
-      return { id: selected.id, aliases: selected.aliases, name: selected.display_name, speedRoutes, prediction: provider ? {
+      return { id: selected.id, aliases: selected.aliases, name: selected.display_name, speedRoutes, prediction: provider ? enrichPricing({
         billing: routing.billingFor(provider), provider: provider.id, label: provider.name, model: route.model,
         ...routing.billingDetails(provider),
         fallback: route.provider !== selected.provider,
-      } : { billing: 'paused', label: 'Connections paused', paused: true } };
+      },provider) : enrichPricing({ billing: 'paused', label: 'Connections paused', paused: true,provider:selected.provider,model:selected.model,...routing.billingDetails(store.provider(selected.provider)) },store.provider(selected.provider)) };
     }) };
   };
   const publishBilling = (contents, snapshot) => {
@@ -175,6 +177,7 @@ async function prepareRecovered({ app, safeStorage }) {
     );
   const id = "a57e0000-0000-4000-8000-000000000001";
   lifecycle.modelSelectionsMigrated = require('./model-selection.cjs').migrateSelections(dir, routes);
+  lifecycle.modelPreferencesMigrated = require('./model-selection.cjs').migrateModelPreferences(store.dir, routes);
   const compatibleRoutes = [...routes, ...gateway.routes()];
   require("./model-effort.cjs").registerNativeRoutes(compatibleRoutes);
   process.env.CLAUDE_CODE_MODEL_CAPABILITIES = require("./model-effort.cjs").nativeEngineCapabilities(
@@ -193,18 +196,23 @@ async function prepareRecovered({ app, safeStorage }) {
     inferenceModels: routes.map((r, i) => ({
       name: r.id,
       labelOverride: r.display_name,
+      ...require('./model-limits.cjs').nativeConfig(r),
       ...(i === 0
         ? { anthropicFamilyTier: "sonnet", isFamilyDefault: true }
         : {}),
       maxEffort: require("./model-effort.cjs").nativeMaxEffort(r.model, r.meta),
     })),
     modelCatalogEnabled: false,
+    toolSearchEnabled: !/^(?:false|0|off)$/i.test(process.env.ENABLE_TOOL_SEARCH || ''),
     chatTabEnabled: true,
     chatAdvancedFileAnalysisEnabled: true,
     isDesktopExtensionEnabled: true,
     // Supported third-party deployment setting. The recovered browser retains
     // its site permission prompts, managed policy checks, and safety checks.
     builtinBrowserEnabled: true,
+    // Do not force the deployment's network sandbox when Local sandbox is off.
+    // Native managed-policy precedence and user command approvals still apply.
+    coworkEgressAllowedHosts: ["*"],
     disableAutoUpdates: true,
     // This controls hosted artifact frames and interactive MCP widgets as well
     // as icons; blocking it removes user-facing workflows.
@@ -237,7 +245,7 @@ async function prepareRecovered({ app, safeStorage }) {
     }),
     { mode: 0o600 },
   );
-  app.on("before-quit", () => gateway.close());
+  app.on("before-quit", () => { store.subscriptions.close(); gateway.close(); });
   console.log(
     "ASTER_GATEWAY_READY",
     JSON.stringify({ pid: process.pid, models: routes.length }),

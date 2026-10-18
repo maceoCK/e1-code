@@ -11,6 +11,8 @@ parentPort.on('message', message => {
   }
   if (message.type === 'disconnect-provider') gatewayInstance?.disconnectProvider(message.id);
   if (message.type === 'shutdown') { gatewayInstance?.close(); setTimeout(() => process.exit(0), 100); }
+  if(message.type==='subscription-providers'){store.data.providers=[...store.data.providers.filter(p=>p.authType!=='chatgpt-subscription'),...message.providers];if(message.reconnected)gatewayInstance?.reconnectProvider(message.reconnected);}
+  if(message.type==='claude-providers'){store.data.providers=[...store.data.providers.filter(p=>p.authType!=='claude-code'),...message.providers];store.data.routing=message.routing;}
   if (message.type === 'routing') store.data.routing = message.routing;
   if (message.type === 'reset-health') gatewayInstance?.resetHealth(message.id);
   if (message.type === 'abort-provider') gatewayInstance?.abortProvider(message.id);
@@ -30,18 +32,19 @@ const store = {
     if (!provider) throw Error("Provider not found.");
     return provider;
   },
-  key(provider) {
+  key(provider,refresh=false) {
     if (provider.authType === 'chatgpt-subscription') return new Promise((resolve, reject) => {
       const id = ++keyIndex;
       const timer = setTimeout(() => { pendingKeys.delete(id); reject(Error('Subscription credential refresh timed out.')); }, 30000);
       pendingKeys.set(id, { resolve, reject, timer });
-      parentPort.postMessage({ type: 'subscription-key', id, accountId: provider.accountId });
+      parentPort.postMessage({ type: 'subscription-key', id, accountId: provider.accountId, refresh });
     });
     const entry = workerData.credentials[provider.id];
     if (entry?.error) throw Error(entry.error);
     return entry ? entry.key : Store.prototype.key.call(this, provider);
   },
 };
+store.subscriptions={providers:()=>[],token:(accountId,refresh)=>store.key({authType:'chatgpt-subscription',accountId},refresh)};
 startGateway({
   store,
   listenPort: workerData.port,

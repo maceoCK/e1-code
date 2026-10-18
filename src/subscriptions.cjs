@@ -145,7 +145,7 @@ class Subscriptions {
     const r = await this.transport(RESOURCE + '/models', { headers: { Authorization: 'Bearer ' + token }, redirect: 'error', signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw Error('ChatGPT model discovery returned HTTP ' + r.status);
     const d = await r.json();
-    const models = (d.models || []).filter(m => m.visibility === 'list' && m.slug).map(m => ({ id: m.slug, name: m.display_name || m.slug }));
+    const models = (d.models || []).filter(m => m.visibility === 'list' && m.slug).map(m => ({ id: m.slug, name: m.display_name || m.slug, ...require('./vision-fallback.cjs').modalityMetadata(m) }));
     if (!models.length) throw Error('This account returned no available ChatGPT models.');
     this.account(id).models = models; this.save(); this.onChange(); return models;
   }
@@ -179,7 +179,7 @@ class Subscriptions {
 }
 const instances = new Map();
 function subscriptionsFor(dir, vault, options = {}) {
-  if (!instances.has(dir)) instances.set(dir, new Subscriptions(dir, vault, options));
+  if (!instances.has(dir)) instances.set(dir, new (require('./codex-subscriptions.cjs').CodexSubscriptions)(dir, vault, options));
   const manager = instances.get(dir);
   if (options.openExternal) manager.openExternal = options.openExternal;
   return manager;

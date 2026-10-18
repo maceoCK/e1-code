@@ -9,11 +9,6 @@ const files = {
   'dompurify/dist/purify.min.js': 'purify.min.js',
   'dompurify/LICENSE': 'dompurify-LICENSE',
   'dompurify/LICENSE-MPL': 'dompurify-LICENSE-MPL',
-  '@xterm/xterm/lib/xterm.js': 'xterm.js',
-  '@xterm/xterm/css/xterm.css': 'xterm.css',
-  '@xterm/xterm/LICENSE': 'xterm-LICENSE',
-  '@xterm/addon-fit/lib/addon-fit.js': 'xterm-addon-fit.js',
-  '@xterm/addon-fit/LICENSE': 'xterm-addon-fit-LICENSE',
 };
 fs.mkdirSync(output, { recursive: true });
 for (const [source, name] of Object.entries(files))

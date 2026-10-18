@@ -16,7 +16,7 @@
   document.head.append(style);
   function context(picker) {
     const name = (picker.getAttribute('aria-label')?.replace(/^Model:\s*/, '') || picker.textContent).trim();
-    const model = state?.models.find(m => m.name === name);
+    const model = window.E1ModelList.resolvePickerModel(state?.models, name);
     const pane = picker.closest('.dframe-pane, [aria-label="Primary pane"], [aria-label="Secondary pane"]');
     const ids = [...new Set([picker.closest('[data-session-id]')?.getAttribute('data-session-id'),
       ...[...(pane?.querySelectorAll('[data-session-id]') || [])].map(el => el.getAttribute('data-session-id'))].filter(Boolean))];
@@ -45,7 +45,7 @@
           values:normalize({model:pref.model || '',effort:pref.effort || ''}), reset:true,
           fields:values => [
             {name:'model',label:'Subagent model',items:modelItems,filter:(item,query)=>window.E1ModelList.matches(item,query)},
-            {name:'effort',label:'Subagent effort',items:[{label:'Inherit chat effort',value:''}, ...efforts(values).map(value => ({value,label:({xhigh:'Extra',none:'None'})[value] || value[0].toUpperCase()+value.slice(1)}))]},
+            {name:'effort',label:'Subagent effort',presentation:'choices',items:[{label:'Inherit chat effort',value:''}, ...efforts(values).map(value => ({value,label:({xhigh:'Extra',none:'None'})[value] || value[0].toUpperCase()+value.slice(1)}))]},
           ],
           normalize,
           note:() => 'Used for new workflow tasks, including Ultracode. Your main chat keeps its model.',

@@ -109,7 +109,7 @@ img[src="/logo.svg"] {
   mask: url('/logo.svg') center / contain no-repeat;
 }
 .brand > span {
-  font-family: Georgia, Georgia, serif;
+  font-family: Georgia, serif;
   font-size: 30px;
   letter-spacing: -1px;
 }
@@ -283,7 +283,7 @@ header {
   margin: 0 0 12px;
 }
 h1 {
-  font-family: Georgia, Georgia, serif;
+  font-family: Georgia, serif;
   font-weight: 400;
   letter-spacing: -1.8px;
   font-size: 64px;
@@ -291,7 +291,7 @@ h1 {
   margin: 12px 0 18px;
 }
 h2 {
-  font-family: Georgia, Georgia, serif;
+  font-family: Georgia, serif;
   font-size: 28px;
   font-weight: 400;
   margin: 0;

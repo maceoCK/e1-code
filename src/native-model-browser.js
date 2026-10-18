@@ -24,7 +24,7 @@ export function ModelList({Menu,models,selected,renderModel}) {
     return ()=>{alive=false;revision.current++;unsubscribe?.();};
   },[]);
   const details=new Map(snapshot.models.map(r=>[r.id,r]));
-  const rows=models.map(model=>({...details.get(model.id),...model,model:details.get(model.id)?.model || model.model}));
+  const rows=models.map(model=>{const meta=details.get(model.id)||details.get(model.id.replace(/\[1m\]$/i,''));return {...meta,...model,model:meta?.model || model.model};});
   const visible=globalThis.E1ModelList.arrange(rows,{showLegacy:snapshot.preferences.showLegacy,selected,query});
   const groups=new Map();
   for(const row of visible){if(!groups.has(row.vendor))groups.set(row.vendor,[]);groups.get(row.vendor).push(row);}
@@ -37,7 +37,7 @@ export function ModelList({Menu,models,selected,renderModel}) {
   return h('div',{'data-e1-model-list':'',children:[
     ...[...groups].map(([label,rows])=>h(Menu.Group,{children:[
       h(Menu.GroupLabel,{children:label},'label'),
-      ...rows.map(row=>renderModel(row,{title:row.title,hint:[row.legacy?'Legacy':null,row.connection&&row.connection!==row.vendor?row.connection:null].filter(Boolean).join(' · ')||undefined})),
+      ...rows.map(row=>renderModel(row,{title:row.title,hint:[/\[1m\]$/i.test(row.id)?'1M context':null,row.legacy?'Legacy':null,row.connection&&row.connection!==row.vendor?row.connection:null].filter(Boolean).join(' · ')||undefined})),
     ]},label)),
     !visible.length&&h('div',{className:'px-md py-sm text-body text-muted',role:'status',children:'No matching models. Try a model, provider, or connection name.'},'empty'),
     h(Menu.Separator,{},'separator'),

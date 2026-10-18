@@ -12,7 +12,7 @@
     const key = model.toLowerCase();
     const snapshot = key.match(/[- ](20\d{2})[- ]?(\d{2})[- ]?(\d{2})$/);
     const base = snapshot ? key.slice(0, snapshot.index) : key;
-    const custom = /^ft:/.test(key) || row.providerKind === 'ollama' || /abliterat|ollama|local/i.test(row.providerName || parts[0]);
+    const custom = /^ft:/.test(key) || row.providerKind === 'ollama' || /abliterat|decuff|heretic|ollama|local/i.test(row.providerName || parts[0]);
     const vendor = row.vendor || (custom ? row.providerName || parts[0] : /^claude\b/i.test(key) ? 'Claude' : /^(gpt[- ]|o[134](?:-|$)|chatgpt-)/i.test(key) ? 'OpenAI' : row.providerName || (parts.length > 1 ? parts[0] : 'Other models'));
     const gpt = !custom && base.match(/^gpt[- ](\d+)(?:[.-](\d+))?/);
     const tierFirst = base.match(/^claude[- ](opus|sonnet|haiku|fable)[- ](\d+)(?:[. -](\d+))?/);
@@ -56,7 +56,8 @@
   function arrange(rows, {showLegacy=false, selected, query='', universe=rows} = {}) {
     const tier = row => ({'Claude opus':0,'Claude sonnet':1,'Claude haiku':2}[row.family] ?? 3);
     const rank = vendor => vendor === 'Claude' ? 0 : vendor === 'OpenAI' ? 1 : 2;
-    return classify(rows, universe).filter(r => (showLegacy || !r.legacy || r.id === selected) && matches(r, query)).sort((a,b) =>
+    const baseId = id => typeof id === 'string' ? id.replace(/\[1m\]$/i, '') : id;
+    return classify(rows, universe).filter(r => (showLegacy || !r.legacy || baseId(r.id) === baseId(selected)) && matches(r, query)).sort((a,b) =>
       rank(a.vendor)-rank(b.vendor) || compare(a.vendor,b.vendor) || Number(a.legacy)-Number(b.legacy) ||
       b.version[0]-a.version[0] || b.version[1]-a.version[1] || tier(a)-tier(b) || compare(a.title,b.title) || compare(a.connection,b.connection) || compare(a.id,b.id));
   }
@@ -71,5 +72,12 @@
       previous = group; return item;
     });
   }
-  return { normalize, classify, matches, arrange, items };
+  function resolvePickerModel(rows, label) {
+    // Match only the native 1M decoration of a declared variant, never fuzzy
+    // names. Ambiguous labels must not choose a billing or preference route.
+    const candidates = (rows || []).filter(row => row.name === label ||
+      (row.aliases?.includes(row.id + '[1m]') && label === row.name + ' 1M'));
+    return candidates.length === 1 ? candidates[0] : undefined;
+  }
+  return { normalize, classify, matches, arrange, items, resolvePickerModel };
 });

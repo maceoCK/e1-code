@@ -21,7 +21,7 @@ async function startGatewayWorker({ store, onRequest = () => {}, onStatus = () =
       models: p.models, preferredModel: p.preferredModel,
       credential: p.credential, credentialBase: p.credentialBase, keyFile: p.keyFile,
       executable: p.executable, configDir: p.configDir, profileDir: p.profileDir, billing: p.billing, billingMethod: p.billingMethod, authType: p.authType, accountId: p.accountId, signedIn: p.signedIn,
-      planType:p.planType, accountEmail:p.accountEmail,
+      planType:p.planType, accountEmail:p.accountEmail, connectionMode:p.connectionMode, workspaceAccountId:p.workspaceAccountId, connectionAliases:p.connectionAliases,
     };
   });
   // Select an unused loopback port without waiting for the worker to initialize.
@@ -43,6 +43,16 @@ async function startGatewayWorker({ store, onRequest = () => {}, onStatus = () =
       port, token,
     },
   });
+  const previousSubscriptionChange=store.subscriptions?.onChange;
+  if(store.subscriptions)store.subscriptions.onChange=change=>{
+    previousSubscriptionChange?.(change);
+    worker.postMessage({type:'subscription-providers',providers:store.subscriptions.providers(),reconnected:change?.authenticated?'chatgpt-'+change.accountId:undefined});
+  };
+  const previousClaudeChange = store.claudeAccounts?.onChange;
+  if (store.claudeAccounts) store.claudeAccounts.onChange = () => {
+    previousClaudeChange?.(); store.save();
+    worker.postMessage({type:'claude-providers',providers:store.claudeAccounts.providers(),routing:store.data.routing});
+  };
   const readyPromise = new Promise((resolve, reject) => {
     let ready = false;
     const timer = setTimeout(() => {
@@ -53,7 +63,7 @@ async function startGatewayWorker({ store, onRequest = () => {}, onStatus = () =
       if (message.type === "request") onRequest(message.request);
       if (message.type === 'status') onStatus(message.status);
       if (message.type === 'subscription-key') {
-        Promise.resolve().then(() => store.subscriptions.token(message.accountId)).then(
+        Promise.resolve().then(() => store.subscriptions.token(message.accountId,message.refresh===true)).then(
           key => worker.postMessage({ type: 'subscription-key', id: message.id, key }),
           error => worker.postMessage({ type: 'subscription-key', id: message.id, error: error.message }),
         );
@@ -80,7 +90,7 @@ async function startGatewayWorker({ store, onRequest = () => {}, onStatus = () =
     });
   });
   return { origin: `http://127.0.0.1:${port}`, token, ready: readyPromise,
-    catalog: () => modelCatalog(store, routes), routes: () => routes, close: () => { worker.postMessage({ type: 'shutdown' }); return new Promise(resolve => { const timer = setTimeout(() => worker.terminate().then(resolve), 1500); worker.once('exit', code => { clearTimeout(timer); resolve(code); }); }); },
+    catalog: () => modelCatalog(store), routes: () => catalog(store), close: () => { worker.postMessage({ type: 'shutdown' }); return new Promise(resolve => { const timer = setTimeout(() => worker.terminate().then(resolve), 1500); worker.once('exit', code => { clearTimeout(timer); resolve(code); }); }); },
     updateRouting: routing => worker.postMessage({ type: 'routing', routing }),
     resetHealth: id => worker.postMessage({ type: 'reset-health', id }),
     disconnectProvider: id => worker.postMessage({ type: 'disconnect-provider', id }),
