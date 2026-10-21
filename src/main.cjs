@@ -1,5 +1,7 @@
 const { app, BrowserWindow, Menu, MenuItem, safeStorage, shell, dialog, autoUpdater, session } = require("./secure-storage.cjs").install();
 const path = require("node:path"), fs = require("node:fs");
+// Test isolation: relocate every E1 profile directory (Aster, Aster-Workspace-3p, ...).
+if (process.env.E1_APPDATA_ROOT) app.setPath("appData", path.resolve(process.env.E1_APPDATA_ROOT));
 if (process.argv.includes('--e1-check-keychain')) {
   app.setPath('userData', path.join(app.getPath('appData'), 'E1 Storage Verification'));
   app.whenReady().then(async () => {
@@ -79,7 +81,8 @@ else {
         require("./providers.cjs").setTransport((url, options) => require("electron").net.fetch(url, options));
         const dataDir = path.join(app.getPath("appData"), "Aster");
         const service = await require("./server.cjs").startServer({
-          dataDir, settingsOnly: true,
+          dataDir, settingsOnly: true, sharedStore: app.e1Gateway?.store,
+          providersChanged: () => app.e1Gateway?.refreshProviders(),
           vault: { encryptString: s => safeStorage.encryptString(s), decryptString: b => safeStorage.decryptString(b) },
           subscriptions: require('./subscriptions.cjs').subscriptionsFor(dataDir, null),
           claudeAccounts: require('./claude-accounts.cjs').claudeAccountsFor(dataDir, { openExternal: url => shell.openExternal(url) }),

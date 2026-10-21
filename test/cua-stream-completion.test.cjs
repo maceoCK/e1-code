@@ -116,13 +116,27 @@ test('queued and in-progress Responses events are allowed only before a valid te
 });
 
 test('completion edits remain exactly reproducible from the reviewed installer anchors', () => {
-  for (const name of ['gateway.cjs', 'gateway-stream.cjs']) {
-    const source = readFileSync(path.join(__dirname, '..', 'src', name), 'utf8');
-    let baseline = source;
-    for (const [old, replacement] of PATCHES[name]) {
-      assert.equal(source.split(replacement).length - 1, 1, `${name}: replacement drift`);
-      baseline = baseline.replace(replacement, () => old);
-    }
-    assert.equal(patchText(baseline, name), source);
+  // gateway-stream.cjs is still exactly the reviewed baseline plus the installer edits.
+  const stream = readFileSync(path.join(__dirname, '..', 'src', 'gateway-stream.cjs'), 'utf8');
+  let baseline = stream;
+  for (const [old, replacement] of PATCHES['gateway-stream.cjs']) {
+    assert.equal(stream.split(replacement).length - 1, 1, 'gateway-stream.cjs: replacement drift');
+    baseline = baseline.replace(replacement, () => old);
   }
+  assert.equal(patchText(baseline, 'gateway-stream.cjs'), stream);
+  // gateway.cjs carries every installer edit, but the 10-18 subscription pool later
+  // added success bookkeeping (pool.succeeded / health recovery) between the operator's
+  // buffered resolution and the speed report, so that one edit is checked in order.
+  const gateway = readFileSync(path.join(__dirname, '..', 'src', 'gateway.cjs'), 'utf8');
+  const count = (text, part) => text.split(part).length - 1;
+  const pairs = PATCHES['gateway.cjs'], last = pairs.at(-1)[1];
+  for (const [, replacement] of pairs.slice(0, -1)) assert.equal(count(gateway, replacement), 1, 'gateway.cjs: replacement drift');
+  const [resolve, report] = last.split('\n      status.actualSpeed').map((part, i) => i ? '      status.actualSpeed' + part : part);
+  assert.equal(count(gateway, resolve), 1, 'gateway.cjs: operator resolution drift');
+  assert.equal(count(gateway, report), 1, 'gateway.cjs: speed report drift');
+  const between = gateway.slice(gateway.indexOf(resolve) + resolve.length, gateway.indexOf(report));
+  assert.match(between, /^\n      pool\.succeeded\(selection\?\.key, provider\.id, policy\);\n/, 'only pool success bookkeeping follows the operator resolution');
+  assert.equal(/operator|prepareImages|result\s*=/.test(between), false);
+  // The historical installer refuses the already-upgraded sources instead of re-applying.
+  for (const [name, text] of [['gateway.cjs', gateway], ['gateway-stream.cjs', stream]]) assert.throws(() => patchText(text, name), /Already or partially patched/);
 });

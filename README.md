@@ -43,7 +43,7 @@ Development state is stored under `.dev-data/`. `ASTER_DATA` overrides that dire
 
 ## Native integration
 
-See [native build inputs and commands](docs/native-build.md). The integration is pinned to the captured client version `2.19675.0`; its hooks deliberately reject incompatible layouts. No native app download or compiled desktop release is published here.
+See [native build inputs and commands](docs/native-build.md). The integration is pinned to the captured client version `3.1623.0` (ported from `2.19675.0` on 2026-10-20); its hooks deliberately reject incompatible layouts. No native app download or compiled desktop release is published here.
 
 The public checkout uses system fonts. Browser dependencies are generated from locked npm packages by `scripts/sync-ui-vendor.cjs`, with their license notices copied alongside them.
 

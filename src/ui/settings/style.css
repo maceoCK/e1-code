@@ -291,3 +291,8 @@ dialog .primary { width:100%; margin-top:12px; }
 .model-browser-setting .setting-row { border:0; }
 #model-browser-status { font-size:12px; margin:0 0 12px; color:var(--muted); }
 #model-browser-status:empty { display:none; }
+
+#routing-strategy { width: min(230px, 45%); margin: 0; }
+[data-usage-result]:not(:empty) { display: block; max-width: 440px; margin-top: 4px; line-height: 1.5; }
+
+#usage-panel { padding: 20px 26px; }

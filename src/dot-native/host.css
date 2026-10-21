@@ -1,6 +1,7 @@
 html,body,#root{width:100%;height:100%;margin:0;overflow:hidden;-webkit-app-region:no-drag}
 body{background:var(--color-surface,#fff);color:var(--color-text-primary,#171717)}
 .e1-native-workspace{display:flex;width:100%;height:100%;min-height:0;min-width:0}
-.e1-native-room{position:relative;display:flex;flex:1;flex-direction:column;height:100%;min-height:0;min-width:0}
+/* Build 20770 room-view sets --messaging-header-inset when it shows the Dot header (the header CSS module is absolutely positioned). */
+.e1-native-room{position:relative;display:flex;flex:1;flex-direction:column;height:100%;min-height:0;min-width:0;--messaging-header-inset:calc(var(--spacing,.25rem)*28)}
 .e1-native-tabs{display:flex;flex-direction:column;width:48%;min-width:320px;border-left:1px solid var(--color-border-default,#ddd)}
 .e1-native-failure{margin:10vh auto;padding:24px;max-width:520px;font:14px/1.5 -apple-system,BlinkMacSystemFont,sans-serif}

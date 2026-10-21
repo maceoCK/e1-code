@@ -3,15 +3,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 // Remove the E1 settings surface, not the native sandbox policy or IPC layer.
-// _i mounts both Local sandbox and its nested Strict sandbox mode row.
+// Claude Desktop 3.1623.0 moved the Claude Code settings rows into
+// c8b630735 (export `t`, rendered by the claude-code, notifications and
+// full-page settings routes). `Le` mounts both the Local sandbox row and its
+// nested Strict sandbox mode row (`Ie`), so unmounting `Le` hides both.
+// The search descriptors live in cc7db14f1 (`localSandbox` / `strictSandbox`);
+// the settings search indexer skips any descriptor with search.exclude.
 const patches = {
-  'assets/v1/c71860c77-CDc2iaLc.js': [
-    ['l(wi,{}),l(yi,{}),l(mi,{}),l(_i,{})', 'l(wi,{}),l(yi,{}),l(mi,{})'],
+  'assets/v1/c8b630735-B15lmU6Q.js': [
+    ['f("local")&&n(Ne,{}),f("local")&&n(Le,{})]', 'f("local")&&n(Ne,{})]'],
   ],
-  'assets/v1/c7357c32b-m4MxPvkb.js': [
-    ['api:"ClaudeCode.setLocalSandboxEnabled"},platform:"desktop",search:{localSessionRow:!0}',
+  'assets/v1/cc7db14f1-Bfi7uClW.js': [
+    ['api:"ClaudeCode.setLocalSandboxEnabled"},platform:"desktop",search:{localSessionRow:!0,codeDesktopRow:!0}',
      'api:"ClaudeCode.setLocalSandboxEnabled"},platform:"desktop",search:{exclude:!0}'],
-    ['api:"ClaudeCode.setStrictSandboxMode"},platform:"desktop",search:{localSessionRow:!0}',
+    ['api:"ClaudeCode.setStrictSandboxMode"},platform:"desktop",search:{localSessionRow:!0,codeDesktopRow:!0}',
      'api:"ClaudeCode.setStrictSandboxMode"},platform:"desktop",search:{exclude:!0}'],
   ],
 };

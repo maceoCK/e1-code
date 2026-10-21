@@ -4,7 +4,7 @@ const { supportedEfforts } = require('./model-effort.cjs');
 function installWorkflowBridge(app, dir, gateway, store) {
   const preferences = new WorkflowPreferences(dir), sessions = new WeakSet();
   const planSelection=new (require('./plan-selection.cjs').PlanSelection)(store.dir);
-  const planUsage=new (require('./plan-usage.cjs').PlanUsage)(store);
+  const planUsage=store.planUsage ||= new (require('./plan-usage.cjs').PlanUsage)(store);
   const browser = new (require('./model-browser-preferences.cjs').ModelBrowserPreferences)(store.dir);
   const contentsSet = new Set();
   const browserModels = (routes = gateway.catalog()) => routes.map(r => {

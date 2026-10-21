@@ -18,11 +18,13 @@
     </div>
   </section>
   <section id="usage-panel" role="tabpanel" aria-labelledby="usage-tab" hidden>
-    <h2>When a limit is reached</h2><p class="section-note">Pause, or let another connection continue with the same model.</p>
-    <label class="setting-row"><span><strong>Switch connections automatically</strong><small>Use a connection selected below when the current one reaches its limit.</small></span><input type="checkbox" id="routing-enabled"></label>
+    <h2>Subscription pool</h2><p class="section-note">Keep each chat on one account, with automatic recovery when a connection reaches its limit.</p>
+    <label class="setting-row"><span><strong>Switch connections automatically</strong><small>Use an eligible connection below when an account is limited or temporarily unavailable.</small></span><input type="checkbox" id="routing-enabled"></label>
+    <label class="setting-row"><span><strong>Choose accounts for new chats</strong><small>Existing chats keep their account while it is available.</small></span><select id="routing-strategy"><option value="reset-first">Weekly reset soonest</option><option value="fill-first">First available in order</option><option value="round-robin">Rotate between accounts</option></select></label>
+    <label class="setting-row"><span><strong>Keep chats on the same account</strong><small>Remember the account for one hour, including child agents, to preserve prompt caching.</small></span><input type="checkbox" id="routing-affinity"></label>
     <label class="setting-row"><span><strong>Allow paid API usage</strong><small>Use a selected API connection if no subscription is available. Charges apply.</small></span><input type="checkbox" id="routing-api"></label>
     <div class="api-notice" id="api-notice" hidden><span class="billing-swatch" aria-hidden="true"></span><span>API usage is billed separately from your subscription.</span></div>
-    <h3>Connections to try</h3><p class="field-note">Subscriptions first, in the order below. E1 pauses if none can run the same model and version.</p>
+    <h3>Connections to try</h3><p class="field-note">Subscriptions are preferred. The order below breaks ties when usage is unavailable. E1 keeps the same model and version, and retries accounts after their cooldown.</p>
     <div id="routing-pool"></div>
     <div class="routing-footer"><p id="routing-status" role="status"></p><button id="save-routing" class="primary">Save changes</button></div>
   </section>

@@ -70,7 +70,7 @@ class Store {
     atomicJson(this.file, settings);
   }
   publicProvider(p) {
-    const { secret, keyFile, ...safe } = p;
+    const { secret, keyFile, proxy, ...safe } = p;
     return {
       ...safe,
       hasKey: !!(
@@ -96,7 +96,7 @@ class Store {
     this.normalizeSubscriptionReferences();
     return {
       ...this.data,
-      providers: [...this.data.providers.map((p) => this.publicProvider(p)), ...(this.subscriptions?.providers() || []), ...(this.claudeAccounts?.providers() || [])],
+      providers: [...this.data.providers.map((p) => this.publicProvider(p)), ...(this.subscriptions?.providers() || []), ...(this.claudeAccounts?.providers() || [])].map(({proxy,...p})=>p),
       keyStorage: this.vault ? "macOS encrypted storage" : "session only",
     };
   }
@@ -104,9 +104,13 @@ class Store {
     id=this.resolveProviderId(id);
     const p = this.data.providers.find((p) => p.id === id) || this.subscriptions?.providers().find(p => p.id === id) || this.claudeAccounts?.providers().find(p => p.id === id);
     if (!p) throw Error("Provider not found.");
-    return p;
+    return this.proxy?.decorate(p) || p;
   }
   key(p) {
+    if(p.proxy){if(p.proxy.error)throw Error(p.proxy.error);return this.proxy.key;}
+    return this.sourceKey(p);
+  }
+  sourceKey(p) {
     if (p.authType === 'chatgpt-subscription') return this.subscriptions.token(p.accountId);
     let stored = this.memoryKeys.get(p.id);
     if (p.keyFile && p.baseUrl === p.keyFile.baseUrl) {

@@ -9,7 +9,7 @@ const engine = require('../src/claude-engine.cjs');
 test('Claude-account transport opts the inner CLI into verified 1M context only', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-account-test-'));
   const provider = { id: 'fixture', name: 'Fixture', protocol: 'claude-code', authType: 'claude-code', billing: 'subscription', signedIn: true,
-    models: [{ id: 'claude-opus-5-5' }, { id: 'claude-haiku-5-5' }] };
+    models: [{ id: 'claude-opus-5-5' }, { id: 'claude-haiku-4-5-20251001' }] };
   const store = { data: { providers: [provider] }, nativeProfile: dir, provider: () => provider };
   const original = engine.generate, calls = [];
   engine.generate = async (_provider, body, model) => {
@@ -24,7 +24,7 @@ test('Claude-account transport opts the inner CLI into verified 1M context only'
         body: JSON.stringify({ model: model.id, max_tokens: 10, messages: [{ role: 'user', content: 'Offline' }] }) });
       assert.equal(response.status, 200, await response.text());
     }
-    assert.deepEqual(calls, ['claude-opus-5-5[1m]', 'claude-haiku-5-5']);
+    assert.deepEqual(calls, ['claude-opus-5-5[1m]', 'claude-haiku-4-5-20251001']);
   } finally { engine.generate = original; gateway?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

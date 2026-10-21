@@ -1,5 +1,5 @@
-import {aa as h, Ha as useState, Na as useEffect, Va as useRef} from './vendor-frame-Bk3oL3Qp.js';
-import {kc as Icon} from './shared-frame-mKeNK6Hi.js';
+import {Ha as h, wo as useState, ho as useEffect, Co as useRef} from './vendor-frame-CnSY1sxv.js';
+import {id as Icon} from './shared-frame-Xx-llYK5.js';
 
 // Codex's native new-tab Page: tools first, then up to four real top sites.
 // Keep navigation in the recovered browser; this component never embeds a browser.

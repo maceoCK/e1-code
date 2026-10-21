@@ -16,7 +16,16 @@ test('automatic routing defaults to subscription-only, retains exact models and 
   const store = fixture(), routes = G.catalog(store), selected = routes.find(r => r.provider === 'api');
   assert.deepEqual(R.policyFor().allowApiFallback, false);
   assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), {}).map(r => r.provider), ['one', 'two']);
-  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), { one: { retryAt: null }, two: { retryAt: null } }), []);
+  // A quota failure without reset metadata gets a finite exponential cooldown (10-18
+  // pooling), and old builds' indefinite {retryAt:null} pauses are bounded the same way.
+  const now = Date.now(), first = R.failureHealth({ status: 429 }, undefined, now);
+  assert.equal(first.retryAt, now + 60000); assert.equal(R.failureHealth({ status: 429 }, first, now).retryAt, now + 120000);
+  const health = { one: first, two: { retryAt: null, at: now } };
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health, now), []);
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health, now + 60001).map(r => r.provider), ['one', 'two']);
+  const reset = { one: R.failureHealth(R.quotaError(429, { error: { resets_in_seconds: 600 } }, new Headers(), now), undefined, now), two: first };
+  assert.equal(reset.one.retryAt, now + 600000, 'a provider reset time wins over the default cooldown');
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), reset, now + 60001).map(r => r.provider), ['two']);
   store.data.routing.allowApiFallback = true;
   assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), {}).map(r => r.provider), ['one', 'two', 'api']);
   assert.equal(R.retryAt(new Headers()), null);

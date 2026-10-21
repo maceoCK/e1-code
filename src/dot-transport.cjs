@@ -9,7 +9,9 @@ function createDotTransport({ app, session }, electronVersion = process.versions
     const backend = target.origin === 'https://chatgpt.com' && target.pathname.startsWith('/backend-api/');
     const history = target.origin === 'https://codex-cloud-backend.chatgpt.com' && (options.method || 'GET') === 'GET' && /^\/v[12]\/threads\/[\w~-]+(?:\/turns)?$/.test(target.pathname);
     const avatar = target.protocol === 'https:' && target.hostname.endsWith('.oaiusercontent.com') && (options.method || 'GET') === 'GET';
-    if ((!backend && !history && !avatar) || target.username || target.password)
+    // ChatGPT build 20770 negotiates the Dot computer stream (SDP offer) here.
+    const computer = target.origin === 'https://realtime.chatgpt.com' && target.pathname === '/v1/cua' && options.method === 'POST';
+    if ((!backend && !history && !avatar && !computer) || target.username || target.password)
       throw Error('Invalid Dot service URL.');
     if (typeof accountId !== 'string' || !accountId)
       throw Error('A Dot account is required.');

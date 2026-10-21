@@ -1,5 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs"), path = require("node:path");
 const M = require("../src/model-effort.cjs");
 test("engine capabilities match each provider model and preserve explicit overrides", () => {
   const caps = M.nativeEngineCapabilities([
@@ -37,14 +38,18 @@ test('Abliteration offers Default and Ultracode while retaining native policy ca
   assert.deepEqual(M.withUltracode('code', route.id, { effort_options: raw.effort_options.filter(x => x.id !== 'xhigh') }).effort_options.map(x => x.id), ['low']);
 });
 test('native renderer recognizes workflow-only capability without adding a fictitious Extra option', () => {
-  const patch = require('../scripts/patch-workflow-renderer.cjs').patch;
-  const source = 'function vD(e){return e.flatMap(e=>{let t=dD.safeParse(e.id);return!t.success||t.data==="xhigh"&&!sD()?[]:[{...e,id:t.data}]})}';
+  const adapter = require('../scripts/patch-workflow-renderer.cjs'), patch = adapter.patch;
+  // 3.1623.0 mapper XM (was vD): GM is the effort enum, VM the native xhigh gate.
+  const source = 'function XM(e){return e.flatMap(e=>{let t=GM.safeParse(e.id);return!t.success||t.data==="xhigh"&&!VM()?[]:[{...e,id:t.data}]})}';
+  const captured = path.join(process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp'), 'full/original/Claude.app/Contents/Resources/ion-dist', adapter.file);
+  if (fs.existsSync(captured)) assert.ok(fs.readFileSync(captured, 'utf8').includes(source), 'fixture is the captured native mapper');
   const vm = require('node:vm');
-  const context = { dD: { safeParse: id => ({ success: ['low', 'medium', 'high', 'xhigh', 'max'].includes(id), data: id }) }, sD: () => true };
-  const fn = vm.runInNewContext(patch(source) + '; vD', context);
+  const context = { GM: { safeParse: id => ({ success: ['low', 'medium', 'high', 'xhigh', 'max'].includes(id), data: id }) }, VM: () => true };
+  const fn = vm.runInNewContext(patch(source) + '; XM', context);
   assert.equal(JSON.stringify(fn([{ id: 'low' }, { id: 'ultracode' }])), JSON.stringify([{ id: 'low' }, { id: 'xhigh' }]));
   assert.equal(fn([{ id: 'xhigh' }, { id: 'ultracode' }]).length, 1);
-  context.sD = () => false;
+  assert.throws(() => patch(patch(source)), /changed/);
+  context.VM = () => false;
   assert.equal(fn([{ id: 'low' }, { id: 'ultracode' }]).length, 1, 'native workflow gate still applies');
 });
 test('workflow effort is omitted for Abliteration and clamped for providers with bounded controls', () => {

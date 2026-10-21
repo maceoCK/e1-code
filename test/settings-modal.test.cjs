@@ -22,7 +22,7 @@ test('Settings pages preserve trusted IPC, account actions, order persistence an
  await page.evaluate(()=>{window.overlays=[];window.e1Settings={request:window.settingsRequest,onShow:cb=>window.openSettings=cb};window.e1NewTab={overlay:async(...args)=>window.overlays.push(args)};});
  await page.addScriptTag({path:path.resolve(__dirname,'../src/ui/settings/app.js')});
  await page.route('https://native.test/assets/v1/e1-settings-pages.js',r=>r.fulfill({path:path.resolve(__dirname,'../src/native-settings-pages.js'),contentType:'text/javascript'}));
- await page.evaluate(async()=>{const {aa:h,sa:createRoot}=await import('/assets/v1/vendor-frame-Bk3oL3Qp.js'),panels=await import('/assets/v1/e1-settings-pages.js');const host=document.createElement('div');host.id='settings-fixture';document.querySelector('.cds-root').append(host);const root=createRoot(host);window.showSettingsPage=name=>root.render(h(panels[name],{}));window.showSettingsPage('Accounts');});
+ await page.evaluate(async()=>{const {Ha:h,Wa:createRoot}=await import('/assets/v1/vendor-frame-CnSY1sxv.js'),panels=await import('/assets/v1/e1-settings-pages.js');const host=document.createElement('div');host.id='settings-fixture';document.querySelector('.cds-root').append(host);const root=createRoot(host);window.showSettingsPage=name=>root.render(h(panels[name],{}));window.showSettingsPage('Accounts');});
  const popup=page.locator('#settings-fixture');await popup.getByText('fixture@example.test · Connected',{exact:true}).waitFor();
  assert.equal(await popup.getByText('person@example.test',{exact:true}).count(),2);
  assert.equal(await popup.getByText('Max subscription · Connected',{exact:true}).count(),2);

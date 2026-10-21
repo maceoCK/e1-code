@@ -47,6 +47,35 @@ async function partCenters(parts, viewBox) {
   }));
 }
 
+// The captured logo animation sheet (cf2613ee5-*.js in 2.19675.0 and 3.1623.0)
+// is located by content, not by hashed file name, in the shipped renderer.
+// Entries look like thinking:{svg:'<svg viewBox=...>',width:100,height:100,frameCount:9,speed:90}
+// (minified) or the same with whitespace (prettified captures).
+const LOGO_STATES = ['thinking', 'writing', 'waiting', 'shimmer', 'entrance', 'exit', 'orbiting', 'tickle'];
+const SPRITE = /([A-Za-z_$][\w$]*)\s*:\s*\{\s*svg\s*:\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*,\s*width\s*:\s*(\d+)\s*,\s*height\s*:\s*(\d+)\s*,\s*frameCount\s*:\s*(\d+)\s*,\s*speed\s*:\s*(\d+)/g;
+const unquote = (single, double) => single !== undefined
+  ? JSON.parse('"' + single.replace(/\\'/g, "'").replace(/"/g, '\\"') + '"')
+  : JSON.parse('"' + double + '"');
+const spriteSources = new Map();
+function spriteSource(capture) {
+  const directory = path.join(capture, 'full/original/Claude.app/Contents/Resources/ion-dist/assets/v1');
+  if (spriteSources.has(directory)) return spriteSources.get(directory);
+  if (!fs.existsSync(directory)) throw Error('Missing captured renderer: ' + path.relative(capture, directory));
+  const candidates = [];
+  for (const name of fs.readdirSync(directory).filter(file => file.endsWith('.js')).sort()) {
+    const text = fs.readFileSync(path.join(directory, name), 'utf8');
+    if (!text.includes('frameCount')) continue;
+    const sprites = [...text.matchAll(SPRITE)]
+      .map(m => ({ state: m[1], svg: unquote(m[2], m[3]), width: m[4], height: m[5], frameCount: m[6], speed: m[7] }))
+      .filter(sprite => LOGO_STATES.includes(sprite.state));
+    if (LOGO_STATES.every(state => sprites.filter(sprite => sprite.state === state).length === 1))
+      candidates.push({ file: path.join(directory, name), sprites });
+  }
+  if (candidates.length !== 1) throw Error('Expected one captured logo animation sheet with states ' + LOGO_STATES.join(', ') + '; found ' + (candidates.map(c => path.basename(c.file)).join(', ') || 'none') + '.');
+  spriteSources.set(directory, candidates[0]);
+  return candidates[0];
+}
+
 module.exports = async function buildBranding(base, output, capture) {
   const source = fs.readFileSync(path.join(base, 'assets/aster-source.svg'), 'utf8');
   const viewBox = source.match(/viewBox="([^"]+)"/)[1];
@@ -54,10 +83,8 @@ module.exports = async function buildBranding(base, output, capture) {
   const mark = parts.join(' ');
   const [, , markWidth, markHeight] = viewBox.split(/\s+/).map(Number);
   const centers = await partCenters(parts, viewBox);
-  const original = fs.readFileSync(path.join(capture, 'readable/resources/ion-dist/assets/v1/cf2613ee5-Btwr9m9F.js'), 'utf8');
   const sprites = {};
-  for (const match of original.matchAll(/(\w+): \{\s+svg: '([^']+)',\s+width: (\d+),\s+height: (\d+),\s+frameCount: (\d+),\s+speed: (\d+)/g)) {
-    const [, state, svg, widthText, heightText, countText, speedText] = match;
+  for (const { state, svg, width: widthText, height: heightText, frameCount: countText, speed: speedText } of spriteSource(capture).sprites) {
     const width = Number(widthText), height = Number(heightText), count = Number(countText), rasterScale = 2;
     const { data, info } = await sharp(Buffer.from(svg)).resize(width * rasterScale, height * count * rasterScale).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const captured = [];
@@ -107,6 +134,8 @@ module.exports = async function buildBranding(base, output, capture) {
   const branding = { viewBox, mark, parts, centers, sprites, sourceSha256: crypto.createHash('sha256').update(source).digest('hex') };
   fs.writeFileSync(path.join(output, 'aster-branding.json'), JSON.stringify(branding));
   fs.copyFileSync(path.join(base, 'src/recovered-branding.js'), path.join(output, 'aster-branding.js'));
+  fs.mkdirSync(path.join(base, 'evidence'), { recursive: true });
   fs.writeFileSync(path.join(base, 'evidence/branding-build.json'), JSON.stringify({ source: 'assets/aster-source.svg', sourceSha256: branding.sourceSha256, animationGeometry: 'Supplied nine-part mark; each frame retains captured footprint and transfers local alpha centroid, orientation, and density changes onto its segments. Adapted artwork, not identical original shape deformation.', interaction: 'Recovered React handlers and Web Animations retained: working state transitions, idle mousedown tickle, completion callbacks, and reduced-motion static fallback. No additional hover or click listeners.', animations: Object.values(sprites).map(({ state, frameCount, speed }) => ({ state, frameCount, millisecondsPerFrame: speed })) }, null, 2));
   return { viewBox, mark };
 };
+module.exports.spriteSource = spriteSource;

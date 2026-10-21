@@ -27,7 +27,7 @@ class CodexSubscriptions extends Subscriptions {
     this.save();
   }
   snapshot(){const s=super.snapshot();s.available=!!this.executable&&!!this.openExternal;s.connectionMode='codex';s.accounts=s.accounts.map(a=>({...a,connected:a.mode==='codex'?a.codexConnected===true:a.connected}));return s;}
-  providers(){return super.providers().map(p=>{const a=this.account(p.accountId);return a.mode!=='codex'?p:{...p,baseUrl:BASE,connectionMode:'codex',connectionAliases:Object.keys(this.data.accountAliases||{}).filter(id=>this.resolveAccountId(id)===a.id).map(id=>'chatgpt-'+id),workspaceAccountId:a.workspaceAccountId,planType:a.planType,signedIn:a.codexConnected===true,hasKey:a.codexConnected===true,keySource:'Codex sign-in · '+a.email};});}
+  providers(){return super.providers().map(p=>{const a=this.account(p.accountId);return a.mode!=='codex'?p:{...p,proxy:this.proxy?.route('codex',a),baseUrl:BASE,connectionMode:'codex',connectionAliases:Object.keys(this.data.accountAliases||{}).filter(id=>this.resolveAccountId(id)===a.id).map(id=>'chatgpt-'+id),workspaceAccountId:a.workspaceAccountId,planType:a.planType,signedIn:a.codexConnected===true,hasKey:a.codexConnected===true,keySource:'Codex sign-in · '+a.email};});}
   async helper(id){
     if(!/^[\da-f-]{36}$/i.test(id))throw Error('Invalid account identifier.');
     if(!this.executable)throw Error('Install ChatGPT or the official Codex CLI to use Codex sign-in.');
@@ -72,35 +72,57 @@ class CodexSubscriptions extends Subscriptions {
       const match=identity(signedIn)&&this.data.accounts.find(a=>identity(a)===identity(signedIn));
       const a=p.existing||match||{id:p.accountId,label:'ChatGPT '+(this.data.accounts.length+1),models:[]};
       const oldProfile=a.profileId;
+      if(this.proxy) {
+        p.helper.close();
+        await this.proxy.importAccount('codex',{...a,mode:'codex',profileId:p.profileId,email:account.email,workspaceAccountId:routing.chatgptAccountId,planType:account.planType},{replace:true});
+      }
       Object.assign(a,{mode:'codex',profileId:p.profileId,email:account.email||'ChatGPT account',workspaceAccountId:routing.chatgptAccountId,planType:account.planType,planEnabled:true,codexConnected:true,status:'connected'});
       if(!p.existing&&!match)this.data.accounts.push(a);p.accountId=a.id;this.save();this.onChange();
       try{await this.models(a.id);}catch{a.modelDiscoveryError=true;this.save();}
       p.status='complete';this.onChange({accountId:a.id,authenticated:true});
-      if(oldProfile&&oldProfile!==p.profileId){try{const old=await this.helper(oldProfile);await old.request('account/logout',{}).catch(()=>{});old.close();}catch{/* The new connection is saved; old-profile cleanup is best effort. */}}
+      if(!this.proxy&&oldProfile&&oldProfile!==p.profileId){try{const old=await this.helper(oldProfile);await old.request('account/logout',{}).catch(()=>{});old.close();}catch{/* The new connection is saved; old-profile cleanup is best effort. */}}
     }catch(error){p.status='failed';p.error=error.message;}
     finally{this.cleanup(p);if(p.status==='failed'){await p.helper.request('account/logout',{}).catch(()=>{});p.helper.close();}}
   }
   async reopen(id){const p=this.pending.get(id);if(!p||p.status!=='waiting'||!p.authUrl)throw Error('Start a new Codex sign-in.');await this.openExternal(p.authUrl);}
   async cancel(id){const p=this.pending.get(id);if(p?.status==='waiting'){p.status='cancelled';this.cleanup(p);await p.helper.request('account/login/cancel',{loginId:p.loginId}).catch(()=>{});await p.helper.request('account/logout',{}).catch(()=>{});p.helper.close();}}
   async token(id,refresh=false){
+    id=this.resolveAccountId(id);
     const a=this.account(id);if(a.mode!=='codex')return super.token(id);
-    if(!a.codexConnected)throw Error('Sign in to this ChatGPT account again.');
-    if(!this.authRequests.has(id)){
-      const work=(async()=>{const helper=await this.helper(a.profileId||id);const status=await helper.request('getAuthStatus',{includeToken:true,refreshToken:refresh});
-        if(!status.authToken){a.codexConnected=false;a.status='sign-in-required';this.save();throw Error('Codex session expired. Sign in again.');}return status.authToken;})();
-      this.authRequests.set(id,work);work.finally(()=>this.authRequests.delete(id)).catch(()=>{});
+    if(this.proxy?.has('chatgpt-'+id))return this.proxy.token('chatgpt-'+id,refresh);
+    const expired=()=>Object.assign(Error('Sign in to this ChatGPT account again.'),{code:'sign_in_required',status:401});
+    if(!a.codexConnected)throw expired();
+    const profile=a.profileId||id;
+    const pending=this.authRequests.get(id);
+    if(pending){
+      // A forced refresh after HTTP 401 must not reuse a non-refresh request.
+      if(refresh&&!pending.refresh){await pending.work.catch(()=>{});return this.token(id,true);}
+      return pending.work;
     }
-    return this.authRequests.get(id);
+    const entry={refresh};
+    entry.work=(async()=>{
+      const helper=await this.helper(profile);
+      const status=await helper.request('getAuthStatus',{includeToken:true,refreshToken:refresh});
+      // A logout/reconnect may finish while the broker is responding. Never
+      // route an old profile's token under the new workspace identity.
+      if(!a.codexConnected||(a.profileId||id)!==profile||this.account(id)!==a)throw expired();
+      if(!status.authToken){a.codexConnected=false;a.status='sign-in-required';this.save();this.onChange();throw expired();}
+      return status.authToken;
+    })();
+    this.authRequests.set(id,entry);
+    entry.work.finally(()=>{if(this.authRequests.get(id)===entry)this.authRequests.delete(id);}).catch(()=>{});
+    return entry.work;
   }
-  async usage(id){const a=this.account(id);if(a.mode!=='codex'||!a.codexConnected)throw Error('Plan usage needs a connected Codex account.');const helper=await this.helper(a.profileId||id);return helper.request('account/rateLimits/read',{});}
+  async usage(id){const a=this.account(id);if(this.proxy?.has('chatgpt-'+a.id))return this.proxy.usage('codex',a);if(a.mode!=='codex'||!a.codexConnected)throw Error('Plan usage needs a connected Codex account.');const helper=await this.helper(a.profileId||id);return helper.request('account/rateLimits/read',{});}
   async models(id){
     const a=this.account(id);if(a.mode!=='codex')return super.models(id);
+    if(this.proxy?.has('chatgpt-'+a.id)){const models=await this.proxy.models('codex',a);a.models=models;this.save();this.onChange();return models;}
     const token=await this.token(id);const response=await this.transport(BASE+'/models?client_version=0.162.0',{headers:{Authorization:'Bearer '+token,'ChatGPT-Account-ID':a.workspaceAccountId,originator:'e1_code'},redirect:'error',signal:AbortSignal.timeout(30000)});
     if(!response.ok)throw Error('Codex model discovery returned HTTP '+response.status);
     const data=await response.json();const models=(data.models||[]).filter(m=>m.slug&&m.visibility==='list').map(m=>({id:m.slug,name:m.display_name||m.slug,contextWindow:m.context_window,maxTokens:m.max_output_tokens||32768,reasoningEfforts:(m.supported_reasoning_levels||[]).map(v=>typeof v==='string'?v:v.effort).filter(Boolean),reasoning:true,...require('./vision-fallback.cjs').modalityMetadata(m)}));
     if(!models.length)throw Error('Codex returned no available models.');a.models=models;delete a.modelDiscoveryError;this.save();this.onChange();return models;
   }
-  async logout(id){const a=this.account(id);if(a.mode!=='codex')return super.logout(id);const helper=await this.helper(a.profileId||id);await helper.request('account/logout',{});a.codexConnected=false;a.status='signed-out';this.save();helper.close();this.onChange();return{message:'Signed out of this E1 Codex connection. Your chats are unchanged.'};}
+  async logout(id){const a=this.account(id);if(this.proxy?.has('chatgpt-'+a.id)){await this.proxy.disconnect('chatgpt-'+a.id);a.codexConnected=false;a.status='signed-out';this.save();this.onChange();return{message:'Disconnected from E1. Your chats are unchanged.'};}if(a.mode!=='codex')return super.logout(id);const helper=await this.helper(a.profileId||id);await helper.request('account/logout',{});a.codexConnected=false;a.status='signed-out';this.save();helper.close();this.onChange();return{message:'Signed out of this E1 Codex connection. Your chats are unchanged.'};}
   close(){super.close();for(const p of this.pending.values())this.cleanup(p);for(const helper of this.helpers.values())helper.then(h=>h.close()).catch(()=>{});this.helpers.clear();}
 }
 module.exports={CodexSubscriptions,BASE};

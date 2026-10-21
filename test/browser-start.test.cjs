@@ -9,8 +9,8 @@ test('browser start uses real actions, same-tab navigation, persistent dismissal
   await nativeFixture(page,'<main id="fixture" style="height:640px"></main>');
   await page.route('https://native.test/assets/v1/e1-browser-start.js',route=>route.fulfill({path:path.resolve(__dirname,'../src/browser-start.js'),contentType:'text/javascript'}));
   await page.evaluate(async()=>{
-    const {aa:h,sa:createRoot}=await import('/assets/v1/vendor-frame-Bk3oL3Qp.js');
-    const {zc:Provider}=await import('/assets/v1/shared-frame-mKeNK6Hi.js');
+    const {Ha:h,Wa:createRoot}=await import('/assets/v1/vendor-frame-CnSY1sxv.js');
+    const {_d:Provider}=await import('/assets/v1/shared-frame-Xx-llYK5.js');
     const {BrowserStart,recordBrowserVisit}=await import('/assets/v1/e1-browser-start.js');
     window.calls=[];window.recordVisit=recordBrowserVisit;
     window.e1NativeTabActions={browser:()=>window.calls.push('browser'),terminal:()=>window.calls.push('terminal'),files:()=>window.calls.push('files'),changes:null};
@@ -73,9 +73,13 @@ test('browser adapter targets only the new-tab branch and rejects source drift',
   const adapter=require('../scripts/patch-browser-start.cjs');
   const capture=path.join(process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp'),'full/original/Claude.app/Contents/Resources/ion-dist');
   const source=fs.readFileSync(path.join(capture,adapter.file),'utf8'),patched=adapter.patch(source);
-  assert.ok(patched.includes('serverId:o,activeTabId:U,onRun:no'));
-  assert.ok(patched.includes('navigatePreview?.(s,url,tab)'));
-  assert.ok(patched.includes('a(cr,{onSetUp:o??r,labels:i,detectionActive:c'),'stopped/error preview states remain native');
+  // 3.1623.0: start page ga (serverId c, cwd i) under parent Co, whose active preview tab is Y.
+  assert.ok(patched.includes('serverId:t,activeTabId:Y,onRun:Tc,'));
+  assert.ok(patched.includes('$[812]?.type===ga&&$[812].props.activeTabId!==Y'),'cached start page is rebuilt for a different tab');
+  assert.ok(patched.includes('navigatePreview?.(c,url,tab)'));
+  assert.equal(patched.split('r(E1BrowserStart,{onNavigate:e1Navigate,').length,4,'empty states and server list use the E1 start page');
+  assert.ok(patched.includes('r(Rr,{onSetUp:u,labels:a,detectionActive:c,detection:d})'),'stopped/error preview states remain native');
+  assert.equal(patched.split('e1RecordBrowserVisit(n)').length,3,'toolbar and pane URL subscriptions record visits');
   assert.throws(()=>adapter.patch(patched));
-  assert.throws(()=>adapter.patch(source.replace('e===n&&x(t)','e===n&&x(t+"")')));
+  assert.throws(()=>adapter.patch(source.replace('e===t&&na(t,n)','e===t&&na(t,n+"")')));
 });

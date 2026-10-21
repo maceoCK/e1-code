@@ -15,7 +15,8 @@ test('numeric metadata is validated; explicit endpoint limits win over model nam
   assert.equal(Limits.contextWindow({ id: 'claude-opus-5-5' }, official), 1000000);
   assert.equal(Limits.contextWindow({ id: 'claude-opus-5-5', contextWindow: 200000 }, official), 200000);
   assert.equal(Limits.contextWindow({ id: 'claude-opus-5-5' }, { protocol: 'chat' }), undefined);
-  assert.equal(Limits.contextWindow({ id: 'claude-haiku-5-5' }, official), undefined);
+  assert.equal(Limits.contextWindow({ id: 'claude-haiku-5-5' }, official), 1000000); // 3.1623.0 catalog
+  assert.equal(Limits.contextWindow({ id: 'claude-haiku-6' }, official), undefined);
   assert.equal(Limits.contextWindow({ contextWindow: -1, max_input_tokens: 262144 }), 262144);
   assert.equal(Limits.contextWindow({ context_length: '1000000' }), undefined);
   assert.equal(Limits.contextWindow({ capabilities: ['long_context'] }), undefined);
@@ -29,7 +30,7 @@ test('known Claude catalog rows retain limits and unknown models stay unknown', 
   const rows = normalizeModels([
     { value: 'opus', resolvedModel: 'claude-opus-5-5' },
     { value: 'claude-fable-5-1[1m]', resolvedModel: 'claude-fable-5-1' },
-    { value: 'haiku', resolvedModel: 'claude-haiku-5-5' },
+    { value: 'haiku', resolvedModel: 'claude-haiku-6' },
   ]);
   assert.equal(rows[0].contextWindow, 1000000);
   assert.equal(rows[1].contextWindow, 1000000);

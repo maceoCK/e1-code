@@ -5,13 +5,14 @@ const http = require("node:http"),
 const { Store } = require("./store.cjs"),
   P = require("./providers.cjs");
 async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = false, subscriptions, claudeAccounts,
-  routingChanged = () => {}, resetRoutingHealth = () => {}, abortProvider = () => {} }) {
-  const store = new Store(dataDir, vault),
+  sharedStore, providersChanged = async () => {}, routingChanged = () => {}, resetRoutingHealth = () => {}, abortProvider = () => {} }) {
+  const store = sharedStore || new Store(dataDir, vault),
     token = crypto.randomBytes(32).toString("hex"),
     sessions = new Set(),
     active = new Map();
   const modelBrowser = new (require('./model-browser-preferences.cjs').ModelBrowserPreferences)(dataDir);
   store.subscriptions = subscriptions; store.claudeAccounts = claudeAccounts;
+  const planUsage = new (require('./plan-usage.cjs').PlanUsage)(store);
   let origin;
   const json = (res, data, status = 200) => {
     res.writeHead(status, {
@@ -64,7 +65,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
           return json(res, { error: "Session expired. Reopen E1 Code." }, 401);
         if (req.method !== "GET" && req.headers.origin !== origin)
           return json(res, { error: "Origin rejected." }, 403);
-        if (settingsOnly && !["/api/state", "/api/provider", "/api/models", "/api/model-browser", "/api/preferences", "/api/preview", '/api/subscription/login', '/api/subscription/cancel', '/api/subscription/reopen', '/api/subscription/acknowledge', '/api/subscription/logout', '/api/claude/existing', '/api/claude/login', '/api/claude/refresh', '/api/claude/reopen', '/api/claude/cancel', '/api/claude/disconnect', '/api/routing', '/api/routing/reset'].includes(url.pathname))
+        if (settingsOnly && !["/api/state", "/api/provider", "/api/models", "/api/model-browser", "/api/preferences", "/api/preview", '/api/subscription/login', '/api/subscription/cancel', '/api/subscription/reopen', '/api/subscription/acknowledge', '/api/subscription/logout', '/api/claude/existing', '/api/claude/login', '/api/claude/refresh', '/api/claude/reopen', '/api/claude/cancel', '/api/claude/disconnect', '/api/routing', '/api/routing/reset', '/api/plan/usage'].includes(url.pathname))
           return json(res, { error: "Not found" }, 404);
         const b = req.method === "GET" ? {} : await read(req);
         switch (url.pathname) {
@@ -106,7 +107,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
             claudeAccounts?.cancel(b.id); return json(res, { ok: true });
           case '/api/claude/disconnect':
             abortProvider('claude-code-' + b.accountId);
-            return json(res, claudeAccounts?.disconnect(b.accountId));
+            return json(res, await claudeAccounts?.disconnect(b.accountId));
           case '/api/subscription/login':
             if (!subscriptions) throw Error('Subscription sign-in requires the desktop app.');
             return json(res, await subscriptions.begin(b.accountId));
@@ -122,6 +123,10 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
             if (!subscriptions) throw Error('Subscription sign-in requires the desktop app.');
             abortProvider('chatgpt-' + b.accountId);
             return json(res, await subscriptions.logout(b.accountId));
+          case '/api/plan/usage': {
+            if (req.method !== 'POST' || typeof b.provider !== 'string') return json(res,{error:'Choose an account.'},400);
+            return json(res, await planUsage.read(b.provider));
+          }
           case '/api/routing': {
             const policy = require('./routing.cjs').policyFor(b);
             for (const id of policy.order) store.provider(id);
@@ -129,23 +134,27 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
             return json(res, policy);
           }
           case '/api/routing/reset': {
-            store.provider(b.provider);
+            const p=store.provider(b.provider);
+            if(p.proxy)await store.proxy.reset(p.id);
             const file = path.join(dataDir, 'routing-health.json');
             const health = require('./library-identity.cjs').readJson(file, {});
-            delete health[b.provider]; require('./library-identity.cjs').atomicJson(file, health);
+            for(const key of Object.keys(health))if(key===b.provider||key.startsWith(b.provider+':'))delete health[key]; require('./library-identity.cjs').atomicJson(file, health);
             resetRoutingHealth(b.provider); return json(res, { ok: true });
           }
-          case "/api/provider":
-            return json(res, store.setProvider(b));
+          case "/api/provider": {
+            const result=store.setProvider(b);await providersChanged();return json(res,result);
+          }
           case "/api/models": {
             const p = store.provider(b.provider);
-            const list = p.authType === 'claude-code' ? await claudeAccounts.models(p.accountId) : p.authType === 'chatgpt-subscription' ? await subscriptions.models(p.accountId) : await P.models(p, await store.key(p));
-            p.models = list.map((m) => ({
+            const list = p.authType === 'claude-code' ? await claudeAccounts.models(p.accountId) : p.authType === 'chatgpt-subscription' ? await subscriptions.models(p.accountId) : await P.models(p, await (store.sourceKey ? store.sourceKey(p) : store.key(p)));
+            const saved=store.data.providers.find(row=>row.id===p.id)||p;
+            saved.models = list.map((m) => ({
               ...p.models.find((old) => old.id === m.id),
               ...m,
             }));
             store.save();
-            return json(res, { models: p.models });
+            await providersChanged();
+            return json(res, { models: saved.models });
           }
           case "/api/preferences": {
             if (b.selection) {
@@ -166,13 +175,13 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
               store.data.selection = s;
               store.data.modelPreferences ||= {};
               store.data.modelPreferences[s.provider + ":" + s.model] = s;
-              store.provider(s.provider).preferredModel = s.model;
+              (store.data.providers.find(p=>p.id===s.provider)||store.provider(s.provider)).preferredModel = s.model;
               const selectedProvider = store.provider(s.provider);
               if (selectedProvider.authType === 'claude-code') claudeAccounts.update(selectedProvider.accountId, { preferredModel: s.model });
               if (selectedProvider.authType === 'chatgpt-subscription') subscriptions.update(selectedProvider.accountId, { preferredModel: s.model });
             }
             if (["mist", "night"].includes(b.theme)) store.data.theme = b.theme;
-            store.save();
+            store.save();await providersChanged();
             return json(res, { ok: true });
           }
           case "/api/chat/new":
@@ -213,7 +222,7 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
             const s = store.data.selection,
               p = store.provider(s.provider);
             if (!s.model) throw Error("Choose a model first.");
-            const key = store.key(p);
+            const key = await store.key(p);
             const ctl = new AbortController();
             active.set(c.id, ctl);
             res.on("close", () => ctl.abort());

@@ -32,11 +32,17 @@ test('Claude account fallback preserves the exact version and subscriptions-only
   const store = fixture(), routes = G.catalog(store), selected = G.modelCatalog(store)[0];
   let choices = R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), {});
   assert.deepEqual(choices.map(r => [r.provider, r.model]), [['max', 'claude-opus-5-5'], ['second', 'claude-opus-5-5']]);
-  const health = { max: { retryAt: null }, second: { retryAt: null } };
-  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health), []);
+  // Subscription cooldowns are finite (10-18 pooling): a quota failure without reset
+  // metadata, and a legacy indefinite pause recorded just now, both pause for a bounded time.
+  const now = Date.now(), health = { max: R.failureHealth({ status: 429 }, undefined, now), second: { retryAt: null, at: now } };
+  assert.equal(health.max.retryAt, now + 60000);
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health, now), []);
   store.data.routing.allowApiFallback = true;
-  choices = R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health);
+  choices = R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health, now);
   assert.deepEqual(choices.map(r => [r.provider, r.model]), [['console', 'claude-opus-5-5']]);
+  // Once the cooldowns lapse, subscriptions are tried again before paid Console.
+  choices = R.candidateRoutes(selected, routes, store, R.policyFor(store.data.routing), health, now + 60001);
+  assert.deepEqual(choices.map(r => [r.provider, r.model]), [['max', 'claude-opus-5-5'], ['second', 'claude-opus-5-5'], ['console', 'claude-opus-5-5']]);
 });
 test('gateway accepts old account model IDs but advertises only models and sends the exact chosen version', async () => {
   const store = fixture(), original = E.generate, observed = [];

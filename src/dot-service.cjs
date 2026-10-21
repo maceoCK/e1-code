@@ -1,4 +1,4 @@
-// Account-bound adapters for routes recovered from ChatGPT build 13536.
+// Account-bound adapters for routes recovered from ChatGPT build 13536 (unchanged in build 20770).
 const BASE = 'https://chatgpt.com/backend-api';
 const CLOUD = 'https://codex-cloud-backend.chatgpt.com';
 class DotError extends Error { constructor(code, message) { super(message); this.code = code; } }

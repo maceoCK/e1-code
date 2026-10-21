@@ -19,13 +19,13 @@ class CodexAuth extends EventEmitter {
     });
     this.child.on('error',()=>this.fail());this.child.on('exit',()=>this.fail());
   }
-  fail(){if(this.closed)return;this.closed=true;for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('Codex authentication helper stopped. Try signing in again.'));}this.pending.clear();this.emit('stopped');}
+  fail(){if(this.closed)return;this.closed=true;for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Object.assign(Error('Codex authentication helper stopped. Try again.'),{code:'ECONNRESET'}));}this.pending.clear();this.emit('stopped');}
   async request(method,params){
     if(method!=='initialize'&&!ALLOWED.has(method))throw Error('Only authentication and account usage methods are permitted.');
-    if(this.closed)throw Error('Codex authentication helper is not running.');
+    if(this.closed)throw Object.assign(Error('Codex authentication helper is not running.'),{code:'ECONNRESET'});
     if(method==='account/login/start'&&params.type==='chatgpt')await checkLoginPort();
     const id=++this.serial;
-    return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{this.pending.delete(id);reject(Error('Codex authentication timed out. Try again.'));},30000);this.pending.set(id,{resolve,reject,timer});this.child.stdin.write(JSON.stringify({id,method,params})+'\n',error=>{if(error){clearTimeout(timer);this.pending.delete(id);reject(Error('Could not contact Codex authentication.'));}});});
+    return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{this.pending.delete(id);reject(Object.assign(Error('Codex authentication timed out. Try again.'),{name:'TimeoutError'}));},30000);this.pending.set(id,{resolve,reject,timer});this.child.stdin.write(JSON.stringify({id,method,params})+'\n',error=>{if(error){clearTimeout(timer);this.pending.delete(id);reject(Error('Could not contact Codex authentication.'));}});});
   }
   async initialize(){const value=await this.request('initialize',{clientInfo:{name:'e1_code',title:'E1 Code',version:'0.1.0'},capabilities:{experimentalApi:true}});this.child.stdin.write(JSON.stringify({method:'initialized',params:{}})+'\n');return value;}
   close(){this.child.kill('SIGTERM');this.fail();}

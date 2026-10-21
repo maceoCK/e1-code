@@ -84,6 +84,10 @@ async function prepareRecovered({ app, safeStorage }) {
     openExternal: url => require('electron').shell.openExternal(url),
   });
   store.claudeAccounts = require('./claude-accounts.cjs').claudeAccountsFor(store.dir, { openExternal: url => require('electron').shell.openExternal(url) });
+  store.proxy = new (require('./cliproxy.cjs').CLIProxy)(store.dir, {store,accounts: () => [
+    ...store.claudeAccounts.data.accounts.map(a => ['claude',a]), ...store.subscriptions.data.accounts.map(a => ['codex',a])
+  ]});
+  store.claudeAccounts.proxy = store.proxy; store.subscriptions.proxy = store.proxy;
   const billing = new (require('./billing-state.cjs').BillingState)({ profile: dir, file: path.join(store.dir, 'billing-chats.json') });
   const routing = require('./routing.cjs');
   const {enrichPricing}=require('./model-pricing.cjs');
@@ -96,7 +100,7 @@ async function prepareRecovered({ app, safeStorage }) {
       catch { return status; }
     });
     const Speed=require('./speed-preferences.cjs'), speedPreferences=new Speed.SpeedPreferences(store.dir).read();
-    return { version: 2, chats, speedPreferences, planPreferences:planSelection.read(), planRoutes:gateway.routes().filter(r=>{const p=store.provider(r.provider);return routing.billingFor(p)==='subscription'&&p.signedIn===true;}).map(r=>{const p=store.provider(r.provider),h=health[p.id],paused=h&&(h.retryAt==null||h.retryAt>Date.now());return enrichPricing({billing:paused?'paused':'subscription',paused:!!paused,planProvider:p.id,provider:p.id,label:p.name,model:r.model,...routing.billingDetails(p)},p);}), catalog: routes.map(selected => {
+    return { version: 2, chats, speedPreferences, planPreferences:planSelection.read(), planRoutes:gateway.routes().filter(r=>{const p=store.provider(r.provider);return routing.billingFor(p)==='subscription'&&p.signedIn===true;}).map(r=>{const p=store.provider(r.provider),h=routing.routeHealth(r,health),paused=!!h;return enrichPricing({billing:paused?'paused':'subscription',paused:!!paused,planProvider:p.id,provider:p.id,label:p.name,model:r.model,...routing.billingDetails(p)},p);}), catalog: routes.map(selected => {
       const route = routing.candidateRoutes(selected, gateway.routes(), store, policy, health)[0];
       const provider = route && store.provider(route.provider);
       const speedRoutes=Speed.apiRoutes(selected,gateway.routes(),store).map(r=>{
@@ -161,7 +165,7 @@ async function prepareRecovered({ app, safeStorage }) {
     require("./startup-health.cjs").installStartupHealthRetry(contents.ipc, gateway.origin, (result) => {
       lifecycle.startupHealthRetry = result;
       record();
-    });
+    }, gateway.ready);
   });
   const selection = store.data.selection;
   const routes = gateway

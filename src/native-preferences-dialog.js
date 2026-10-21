@@ -4,9 +4,10 @@
   function load() {
     // Use the same recovered components as the app, including their focus,
     // portal, dropdown, animation, and reduced-motion handling.
+    // Pinned to Claude Desktop 3.1623.0 chunk names and minified export names.
     return modules ||= Promise.all([
-      import('/assets/v1/vendor-frame-Bk3oL3Qp.js'),
-      import('/assets/v1/shared-frame-mKeNK6Hi.js'),
+      import('/assets/v1/vendor-frame-CnSY1sxv.js'),
+      import('/assets/v1/shared-frame-Xx-llYK5.js'),
     ]).catch(error => { modules = null; throw error; });
   }
   window.e1PreferenceDialog = {
@@ -16,8 +17,11 @@
       if (ticket !== request || !options.isCurrent()) return;
       active?.close();
       const config = options.configure(data);
-      const { sa: createRoot, aa: h } = react;
-      const { Ho: Dialog, Qs: Button, Lr: Combobox, zc: Provider } = cds;
+      // React: Wa=createRoot, Ha=jsx. CDS: qc=Dialog, wu=Button, xi=Combobox, _d=Provider.
+      const { Wa: createRoot, Ha: h } = react;
+      const { qc: Dialog, wu: Button, xi: Combobox, _d: Provider } = cds;
+      if (typeof createRoot !== 'function' || typeof h !== 'function' || !Dialog?.Root || !Dialog.Popup || !Button || !Combobox || typeof Provider !== 'function')
+        throw Error('E1 preferences: incompatible Claude renderer components.');
       const host = document.createElement('div');
       host.dataset.e1PreferencesHost = '';
       document.body.append(host);
@@ -102,7 +106,7 @@
                   note && h('p', { className: 'mt-4 text-body text-secondary', 'data-warning': config.id === 'speed' ? '' : undefined, children: note }, 'note'),
                   error && h('p', { role: 'alert', className: 'mt-4 text-body text-danger', children: error }, 'error'),
                   h(Dialog.Footer, { children: [
-                    config.reset && h(Button, { type: 'button', variant: 'ghost', className: 'sm:mr-auto', disabled: busy, onClick: () => void save(true), children: 'Reset' }, 'reset'),
+                    config.reset && h(Button, { type: 'button', variant: 'ghost', className: 'sm:me-auto', disabled: busy, onClick: () => void save(true), children: 'Reset' }, 'reset'),
                     h(Button, { type: 'button', onClick: close, children: 'Cancel' }, 'cancel'),
                     h(Button, { type: 'submit', variant: 'primary', busy, busyLabel: 'Saving…', disabled: busy || (config.canSave ? !config.canSave(values) : false), children: config.saveLabel?.(values) || 'Save changes' }, 'save'),
                   ] }, 'footer'),

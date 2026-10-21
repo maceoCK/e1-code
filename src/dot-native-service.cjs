@@ -3,6 +3,7 @@
 const crypto=require('node:crypto');
 const {BASE}=require('./dot-service.cjs');
 const key=/^[\w~-]{1,256}$/;
+const CUA_ORIGIN='https://realtime.chatgpt.com';
 class NativeDotService{
  constructor(api,{diagnostic=()=>{}}={}){this.diagnostic=diagnostic;this.api=api;this.sessions=new Map();this.pending=new Map();}
  async open(accountId,dotId){
@@ -44,6 +45,15 @@ class NativeDotService{
  route(s,request){
   const input=request?.url;if(typeof input!=='string'||input.length>16384)throw Error('Invalid native Dot route.');
   const url=new URL(input,BASE+'/');
+  // ChatGPT build 20770 sends the Dot computer SDP offer to the realtime CUA
+  // service instead of /tbo/{id}/computer/sessions. Allow only that offer, for this Dot and its known tasks.
+  if(url.origin===CUA_ORIGIN){
+   const method=String(request.method||'GET').toUpperCase(),q=url.searchParams,threadId=q.get('thread_id'),one=name=>q.getAll(name).length===1;
+   if(url.username||url.password||url.hash||method!=='POST'||url.pathname!=='/v1/cua'||[...q.keys()].some(k=>!['source','thread_id','aeon_id'].includes(k))||!one('source')||!one('aeon_id')||!one('thread_id')||q.get('source')!=='aeon'||q.get('aeon_id')!==s.dotId||!key.test(threadId)||threadId!==s.profile.active_root_thread_id&&!s.threadIds?.has(threadId))throw Error('This native Dot action is not connected to E1 yet.');
+   const expected=Object.entries(request.headers||{}).find(([k])=>k.toLowerCase()==='x-openai-expected-account-id')?.[1];
+   if(expected&&expected!==s.workspaceAccountId)throw Error('Native Dot account does not match the selected connection.');
+   return {route:url.pathname+url.search,method,url:url.href};
+  }
   if(url.origin!=='https://chatgpt.com'||url.username||url.password||url.hash)throw Error('Invalid native Dot host.');
   // The native renderer passes /tbo/... relative to the backend API.
   let route=url.pathname.replace(/^\/backend-api(?=\/)/,'');
@@ -66,7 +76,7 @@ class NativeDotService{
  }
  async fetch(sessionId,requestId,request){
   if(typeof requestId!=='string'||!key.test(requestId))throw Error('Invalid request identifier.');
-  const s=this.get(sessionId),{route,method}=this.route(s,request),controller=new AbortController();
+  const s=this.get(sessionId),{route,method,url}=this.route(s,request),controller=new AbortController();
   const requestKey=sessionId+'\0'+requestId;this.cancel(sessionId,requestId);
   const pending={controller,sessionId};this.pending.set(requestKey,pending);
   try{
@@ -75,8 +85,8 @@ class NativeDotService{
    const body=request.body==null?undefined:typeof request.body==='string'?request.body:JSON.stringify(request.body);
    if(body&&Buffer.byteLength(body)>1024*1024)throw Error('Native Dot request is too large.');
    if(body){const supplied=Object.entries(request.headers||{}).find(([name])=>name.toLowerCase()==='content-type')?.[1];headers['Content-Type']=supplied==='application/sdp'?supplied:'application/json';}
-   const send=()=>api.transport(s.accountId,BASE+route,{method,headers,body,signal:controller.signal,redirect:'error'});
-   let response=await send();this.diagnostic({event:'response',method,route:route.split('?')[0].split('/').map(x=>/^(tbo|rooms|messaging|by-thread|messages|read|responding_heartbeat|activity|stream|automations|environment|status|primary|celsius|ws|user|accounts|check|v4-2023-04-27|me)$/.test(x)?x:x?'{id}':'').join('/'),status:response.status});
+   const send=()=>api.transport(s.accountId,url||BASE+route,{method,headers,body,signal:controller.signal,redirect:'error'});
+   let response=await send();this.diagnostic({event:'response',method,route:route.split('?')[0].split('/').map(x=>/^(tbo|rooms|messaging|by-thread|messages|read|responding_heartbeat|activity|stream|automations|environment|status|primary|celsius|ws|user|accounts|check|v4-2023-04-27|me|tasks|subscription|v1|cua)$/.test(x)?x:x?'{id}':'').join('/'),status:response.status});
    if(response.status===401){await response.body?.cancel();token=await api.subscriptions.token(s.accountId,true);this.get(sessionId);headers.Authorization='Bearer '+token;response=await send();}
    this.get(sessionId);
    if(response.headers.get('cf-mitigated')==='challenge'){await response.body?.cancel();throw Error('ChatGPT requires browser verification for this request. No action was confirmed.');}

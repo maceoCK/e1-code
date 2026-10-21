@@ -8,19 +8,19 @@ const patcher = require('../scripts/patch-sandbox-settings.cjs');
 const { patchRenderer, verifyRenderer, treeManifest, compareBundle } = require('../scripts/install-vision-fallback.cjs');
 const renderer = 'Contents/Resources/ion-dist';
 const fixtures = {
-  'assets/v1/c71860c77-CDc2iaLc.js': 'const rows=[l(wi,{}),l(yi,{}),l(mi,{}),l(_i,{})];',
-  'assets/v1/c7357c32b-m4MxPvkb.js': 'const descriptors=[{storage:{api:"ClaudeCode.setLocalSandboxEnabled"},platform:"desktop",search:{localSessionRow:!0}},{storage:{api:"ClaudeCode.setStrictSandboxMode"},platform:"desktop",search:{localSessionRow:!0}},{storage:{api:"Unrelated.setting"},platform:"desktop",search:{localSessionRow:!0}}];',
+  'assets/v1/c8b630735-B15lmU6Q.js': 'const rows=[f("behavior")&&n(ze,{}),f("local")&&n(Ne,{}),f("local")&&n(Le,{})];',
+  'assets/v1/cc7db14f1-Bfi7uClW.js': 'const descriptors=[{storage:{api:"ClaudeCode.setLocalSandboxEnabled"},platform:"desktop",search:{localSessionRow:!0,codeDesktopRow:!0}},{storage:{api:"ClaudeCode.setStrictSandboxMode"},platform:"desktop",search:{localSessionRow:!0,codeDesktopRow:!0}},{storage:{api:"Unrelated.setting"},platform:"desktop",search:{localSessionRow:!0,codeDesktopRow:!0}}];',
 };
 
 test('sandbox settings mount is removed while neighboring rows and policy definitions survive', () => {
   const file = patcher.files[0];
-  const definitions = '\nconst _i=()=>"Local sandbox", gi=()=>"Strict sandbox mode";';
+  const definitions = '\nconst Le=()=>"Local sandbox", Ie=()=>"Strict sandbox mode";';
   const result = patcher.patch(file, fixtures[file] + definitions);
   assert.ok(result.endsWith(definitions));
   const mounted = vm.runInNewContext(result.split(definitions)[0] + '\nJSON.stringify(rows)', {
-    l: component => component, wi: 'before-one', yi: 'before-two', mi: 'before-three', _i: 'sandbox',
+    f: () => true, n: component => component, ze: 'before-one', Ne: 'before-two', Le: 'sandbox',
   });
-  assert.deepEqual(JSON.parse(mounted), ['before-one', 'before-two', 'before-three']);
+  assert.deepEqual(JSON.parse(mounted), ['before-one', 'before-two']);
 });
 test('both sandbox descriptors are excluded from search without removing IPC metadata', () => {
   const file = patcher.files[1];

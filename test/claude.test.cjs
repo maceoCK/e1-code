@@ -36,7 +36,12 @@ test('legacy cross-model mappings are ignored and unknown billing is excluded by
   assert.equal(R.candidateRoutes(selected, routes, store, R.policyFor({ enabled: true, order: ['plan', 'api'] }), {}).length, 0);
   const policy = { enabled: true, order: ['plan', 'api'], models: { plan: 'gpt-6.1-sol', api: 'gpt-6.1-sol' } };
   assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor(policy), {}).map(r => r.provider), []);
-  assert.deepEqual(R.candidateRoutes(selected, routes, store, R.policyFor({ ...policy, allowApiFallback: true }), { claude: { retryAt: null } }).map(r => r.provider), []);
+  // 10-18 pooling: no cross-family fallback even with consent; a legacy indefinite
+  // pause ({retryAt:null}) is now a bounded one-minute cooldown, never a permanent strand.
+  const now = Date.now(), consent = R.policyFor({ ...policy, allowApiFallback: true });
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, consent, { claude: { retryAt: null, at: now } }, now).map(r => r.provider), []);
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, consent, { claude: { retryAt: null, at: now - 60001 } }, now).map(r => r.provider), ['claude']);
+  assert.deepEqual(R.candidateRoutes(selected, routes, store, consent, { claude: { retryAt: null } }, now).map(r => r.provider), ['claude']);
 });
 test('cancelling Claude stops its subprocess before any desktop tool can be delivered', async () => {
   const controller = new AbortController(); let killed = false;
@@ -45,7 +50,13 @@ test('cancelling Claude stops its subprocess before any desktop tool can be deli
     child.kill = () => { killed = true; queueMicrotask(() => child.emit('close', null)); }; return child;
   };
   const running = E.generate({ signedIn: true, executable: '/official/claude', configDir: '/profile' }, { messages: [] }, 'sonnet', controller.signal, () => {}, launch);
-  controller.abort(); await assert.rejects(running, /stopped/); assert.equal(killed, true);
+  // The caller's cancellation reason is preserved (request-deadline), not replaced by a generic error.
+  controller.abort(); await assert.rejects(running, error => error === controller.signal.reason && error.name === 'AbortError'); assert.equal(killed, true);
+  const second = new AbortController(), reason = Error('Stopped by user.'); let secondKilled = false;
+  const pending = E.generate({ signedIn: true, executable: '/official/claude', configDir: '/profile' }, { messages: [] }, 'sonnet', second.signal, () => {}, () => {
+    const child = launch(); child.kill = () => { secondKilled = true; }; return child;
+  });
+  second.abort(reason); await assert.rejects(pending, error => error === reason); assert.equal(secondKilled, true);
 });
 test('separate Claude logins isolate both Claude and Console credential directories', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-logins-test-')), children = [];
@@ -101,6 +112,8 @@ test('disconnect blocks later Claude requests without deleting shared history or
   try {
     gateway.disconnectProvider('claude'); gateway.resetHealth('claude');
     const response = await fetch(gateway.origin + '/v1/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + gateway.token }, body: JSON.stringify({ model: gateway.catalog()[0].id, messages: [] }) });
-    assert.equal(response.status, 400); assert.match((await response.json()).error.message, /paused/);
+    // Pool selection reports an unavailable pool (no reset time) rather than a generic invalid request.
+    assert.equal(response.status, 503); const { error } = await response.json();
+    assert.equal(error.code, 'pool_unavailable'); assert.match(error.message, /No eligible connection is available for sonnet\..*chat is saved/);
   } finally { gateway.close(); }
 });

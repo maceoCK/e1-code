@@ -3,6 +3,37 @@ const fs = require("node:fs"),
   cp = require("node:child_process"),
   crypto = require("node:crypto");
 let bundleTransaction;
+// The renderer and main-process patches target this exact Claude Desktop build.
+const capturedVersion = "3.1623.0";
+// The main-process chunk is owned by patch-native-capabilities.cjs; don't
+// duplicate its hashed file name here.
+function nativeCapabilitiesChunk() {
+  const patcher = require("./patch-native-capabilities.cjs");
+  if (typeof patcher.file === "string") return patcher.file;
+  const declared = fs.readFileSync(require.resolve("./patch-native-capabilities.cjs"), "utf8").match(/\bconst\s+file\s*=\s*["']([^"']+)["']/);
+  if (!declared) throw Error("Cannot tell which main-process chunk patch-native-capabilities.cjs patches.");
+  return declared[1];
+}
+function bundleVersion(bundle) {
+  const plist = path.join(bundle, "Contents/Info.plist");
+  if (!fs.existsSync(plist)) return null;
+  try { return cp.execFileSync("plutil", ["-extract", "CFBundleShortVersionString", "raw", "-o", "-", plist], { encoding: "utf8" }).trim(); }
+  catch { return null; }
+}
+// Captured documents that must stay byte-identical. client-shell-v1.html is the
+// sandboxed custom-3p module shell: the main process serves it with
+// `script-src 'unsafe-inline' blob:; style-src 'none'; sandbox allow-scripts`,
+// so injected same-origin tags would be blocked and would break its handshake.
+const isolatedDocument = (html) => /<html\b[^>]*\bdata-client-shell\b/i.test(html) || /<meta\s+http-equiv=["']?Content-Security-Policy/i.test(html);
+// Matches the injection in the installed E1 Code (reference/installed-ion/*.html).
+const rendererScripts = ["aster-branding.js", "e1-billing.js", "e1-preferences-dialog.js", "e1-model-list.js", "e1-workflows.js", "e1-speed.js", "e1-dot.js", "e1-new-tab.js", "e1-settings-form.js", "e1-settings-navigation.js"];
+// Diagnostics only: E1_FREEZE_WATCHDOG=1 loads the freeze watchdog before the
+// app modules. It throttles microtasks/focus/observers, so it is never on by default.
+const rendererHead = () =>
+  (process.env.E1_FREEZE_WATCHDOG === "1" ? '<script src="/assets/v1/e1-freeze-watchdog.js"></script>' : "") +
+  '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme>' +
+  rendererScripts.map((name) => `<script defer src="/assets/v1/${name}"></script>`).join("") +
+  "</head>";
 (async () => {
   const base = path.resolve(__dirname, ".."),
     capture = process.env.E1_CAPTURE_ROOT && path.resolve(process.env.E1_CAPTURE_ROOT),
@@ -11,14 +42,27 @@ let bundleTransaction;
     stage = path.join(base, ".package");
   if (process.platform !== 'darwin') throw Error('Native builds require macOS.');
   if (!capture) throw Error('Set E1_CAPTURE_ROOT to your local compatible capture. Proprietary application files are not included in this repository. See docs/native-build.md.');
-  for (const relative of ['full/original/Claude.app/Contents/Info.plist', 'extracted/app/package.json', 'extracted/app/.vite/build/index.chunk-BZdcw7TE.js', 'readable/resources/ion-dist/assets/v1/cf2613ee5-Btwr9m9F.js'])
+  for (const relative of ['full/original/Claude.app/Contents/Info.plist', 'extracted/app/package.json', path.posix.join('extracted/app', nativeCapabilitiesChunk()), 'full/original/Claude.app/Contents/Resources/ion-dist/index.html'])
     if (!fs.existsSync(path.join(capture, relative))) throw Error('Missing local build input: ' + relative + '. See docs/native-build.md.');
+  const captureVersion = JSON.parse(fs.readFileSync(path.join(capture, 'extracted/app/package.json'), 'utf8')).version;
+  if (captureVersion !== capturedVersion) throw Error(`The capture is Claude ${captureVersion}; this integration targets ${capturedVersion}. See docs/native-build.md.`);
+  require('./build-branding.cjs').spriteSource(capture);
   fs.mkdirSync(out, { recursive: true });
+  const originalBundle = path.join(capture, "full/original/Claude.app");
+  // Rebuild in place only over a bundle of the same Claude version. Otherwise
+  // start from the capture so Electron, helpers, app.asar.unpacked and every
+  // renderer chunk match the patched archive.
+  const reuseInstalled = bundleVersion(installedBundle) === capturedVersion;
   bundleTransaction = require('./bundle-transaction.cjs').beginBundle(
     installedBundle,
-    path.join(capture, "full/original/Claude.app"),
+    originalBundle,
+    (from, to) => cp.execFileSync('/bin/cp', ['-cR', reuseInstalled ? from : originalBundle, to]),
   );
   const bundle = bundleTransaction.bundle;
+  // The staged app tree is a cache; discard it when it came from another capture.
+  const stagedPackage = path.join(stage, "package.json");
+  if (fs.existsSync(stage) && (!fs.existsSync(stagedPackage) || JSON.parse(fs.readFileSync(stagedPackage, "utf8")).version !== capturedVersion))
+    fs.rmSync(stage, { recursive: true, force: true });
   fs.mkdirSync(stage, { recursive: true });
   if (!fs.existsSync(path.join(stage, ".vite")))
     fs.cpSync(
@@ -86,24 +130,31 @@ let bundleTransaction;
   fs.copyFileSync(path.join(base, 'src/ui/settings/app.js'), path.join(ion, 'assets/v1/e1-settings-form.js'));
   fs.copyFileSync(path.join(base, 'src/native-settings-navigation.js'), path.join(ion, 'assets/v1/e1-settings-navigation.js'));
   fs.copyFileSync(path.join(base, 'src/native-settings-pages.js'), path.join(ion, 'assets/v1/e1-settings-pages.js'));
+  fs.copyFileSync(path.join(base, 'src/freeze-watchdog.js'), path.join(ion, 'assets/v1/e1-freeze-watchdog.js'));
   fs.rmSync(path.join(ion,'assets/v1/e1-settings-modal.js'),{force:true});
   // Start from captured HTML every time. The targeted workflow and title
   // adapters preserve the original styling and motion sources.
+  const injected = [], head = rendererHead();
   for (const file of fs
     .readdirSync(ionOriginal)
     .filter((f) => f.endsWith(".html"))) {
-    const html = fs
-      .readFileSync(path.join(ionOriginal, file), "utf8")
+    const captured = fs.readFileSync(path.join(ionOriginal, file), "utf8");
+    if (isolatedDocument(captured)) {
+      fs.writeFileSync(path.join(ion, file), captured);
+      continue;
+    }
+    if (!captured.includes("</head>")) throw Error("Captured " + file + " has no </head>; review the renderer injection.");
+    const html = captured
       .replace(
         /(<link rel="icon"[^>]*href=")[^"]+/,
         "$1/assets/v1/aster-logo.svg",
       )
-      .replace(
-        "</head>",
-        '<link rel="stylesheet" href="/assets/v1/aster-theme.css" data-aster-theme><script defer src="/assets/v1/aster-branding.js"></script><script defer src="/assets/v1/e1-billing.js"></script><script defer src="/assets/v1/e1-preferences-dialog.js"></script><script defer src="/assets/v1/e1-model-list.js"></script><script defer src="/assets/v1/e1-workflows.js"></script><script defer src="/assets/v1/e1-speed.js"></script><script defer src="/assets/v1/e1-dot.js"></script><script defer src="/assets/v1/e1-new-tab.js"></script><script defer src="/assets/v1/e1-settings-form.js"></script><script defer src="/assets/v1/e1-settings-navigation.js"></script></head>',
-      );
+      .replace("</head>", () => head);
     fs.writeFileSync(path.join(ion, file), html);
+    injected.push(file);
   }
+  for (const file of ["index.html", "frame-shell.html", "frame-connect.html", "frame-manage.html"])
+    if (!injected.includes(file)) throw Error("E1 renderer scripts were not injected into " + file + ".");
   const sharp = require("sharp");
   const iconset = path.join(base, ".icon.iconset");
   fs.mkdirSync(iconset, { recursive: true });
@@ -172,6 +223,17 @@ for app in list(r.glob('*Helper*.app')):
   cp.execFileSync("xattr", ["-cr", bundle]);
   const helper = require('./build-keychain-helper.cjs').buildHelper(base);
   require('./build-browser-storage.cjs')(base, path.join(bundle, 'Contents/Resources/e1-browser-storage.node'));
+  // Embedded CLIProxyAPI (subscription inference). The pinned upstream binary is
+  // verified against its manifest, then deep-signed with the rest of the bundle.
+  const proxyVendor = path.join(base, 'third_party/cliproxyapi');
+  const proxyManifest = JSON.parse(fs.readFileSync(path.join(proxyVendor, 'manifest.json'), 'utf8'));
+  const proxyBinary = fs.readFileSync(path.join(proxyVendor, 'cli-proxy-api'));
+  if (crypto.createHash('sha256').update(proxyBinary).digest('hex') !== proxyManifest.binarySha256) throw Error('CLIProxyAPI checksum mismatch; run python3 third_party/cliproxyapi/fetch.py.');
+  const proxyTarget = path.join(bundle, 'Contents/Resources/cliproxyapi');
+  fs.rmSync(proxyTarget, { recursive: true, force: true });
+  fs.mkdirSync(proxyTarget, { recursive: true });
+  for (const name of ['cli-proxy-api', 'LICENSE', 'manifest.json']) fs.copyFileSync(path.join(proxyVendor, name), path.join(proxyTarget, name));
+  fs.chmodSync(path.join(proxyTarget, 'cli-proxy-api'), 0o755);
   const signing = require('./signing.cjs').configuration();
   cp.execFileSync(
     "codesign",
@@ -204,7 +266,7 @@ for app in list(r.glob('*Helper*.app')):
       {
         bundle: installedBundle,
         previousBundle,
-        capturedVersion: "2.19675.0",
+        capturedVersion,
         appArchiveHeaderHash: hash,
         builtAt: new Date().toISOString(),
         signature: signing.description,

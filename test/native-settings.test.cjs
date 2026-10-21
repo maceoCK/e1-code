@@ -4,23 +4,28 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 const { nativePicker } = require('../src/model-picker.cjs');
 const os = require('node:os');
 const capture = process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp');
-const available = fs.existsSync(path.join(capture, 'extracted/app/.vite/build/index.chunk-BZdcw7TE.js'));
+const patcher = require('../scripts/patch-native-capabilities.cjs');
+const available = fs.existsSync(path.join(capture, 'extracted/app', patcher.file));
 // Apply the build's capability patch to the locally supplied capture.
-let source = 'function _Tr(){}function ';
+let source = 'function JJt(){}function ';
 if (available) {
   const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-native-settings-'));
   fs.mkdirSync(path.join(stage, '.vite/build'), { recursive: true });
-  require('../scripts/patch-native-capabilities.cjs')(capture, stage);
-  source = fs.readFileSync(path.join(stage, '.vite/build/index.chunk-BZdcw7TE.js'), 'utf8');
+  patcher(capture, stage);
+  source = fs.readFileSync(path.join(stage, patcher.file), 'utf8');
   fs.rmSync(stage, { recursive: true, force: true });
 }
-const start = source.indexOf('function _Tr(');
+// 3.1623.0 managed CLI settings builder (was _Tr); its policy helpers now arrive via `t`.
+const start = source.indexOf('function JJt(');
 const end = source.indexOf('function ', start + 9);
 const builder = vm.runInNewContext('(' + source.slice(start, end) + ')', {
-  jGt: models => new Set(models.filter(m => m.minDesktopVersion).map(m => m.name)),
-  qC: name => name === 'sonnet', a: { app: { getVersion: () => '2.19675.0' } },
-  MMe: config => config.pricing, gTr: value => value,
+  ZMe: config => config.pricing, qJt: value => value,
   require: id => { assert.equal(id, '../../aster/model-picker.cjs'); return { nativePicker }; },
+});
+const routing = managesProviderRouting => ({
+  managesProviderRouting,
+  isRestrictedModel: name => name === 'sonnet',
+  modelNamesNeedingUpdate: models => new Set(models.filter(m => m.minDesktopVersion).map(m => m.name)),
 });
 const id = 'claude-aster-0000000000000001';
 const excluded = 'claude-aster-0000000000000002';
@@ -31,7 +36,7 @@ const config = { models: { list: [
 ] }, pricing: { preserve: true } };
 
 test('native routing settings register curated aliases without changing policy or pricing', { skip: !available }, () => {
-  const output = JSON.parse(JSON.stringify(builder(config, { managesProviderRouting: () => true })));
+  const output = JSON.parse(JSON.stringify(builder(config, routing(true))));
   assert.deepEqual(output.availableModels, [id]);
   assert.equal(output.enforceAvailableModels, false);
   assert.deepEqual(output.modelPricing, config.pricing);
@@ -39,7 +44,7 @@ test('native routing settings register curated aliases without changing policy o
   assert.equal(output.modelPicker.replaceBuiltInOptions, false);
 });
 test('native picker patch does not affect non-gateway provider management', { skip: !available }, () => {
-  assert.equal(JSON.stringify(builder(config, { managesProviderRouting: () => false })), '{}');
+  assert.equal(JSON.stringify(builder(config, routing(false))), '{}');
 });
 
 test('explicit search disable is retained in generated native configuration', { skip: !available }, () => {
@@ -52,5 +57,5 @@ test('explicit search disable is retained in generated native configuration', { 
     assert.equal(vm.runInNewContext(expression, { process: { env: { ENABLE_TOOL_SEARCH: value } } }), true);
   }
   assert.ok(source.includes('env:{ENABLE_TOOL_SEARCH:"force"}'));
-  assert.ok(source.includes('CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS:l==="legacy"?"":"1"'));
+  assert.ok(source.includes('CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS:c==="legacy"?"":"1"'));
 });

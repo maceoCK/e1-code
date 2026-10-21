@@ -10,7 +10,7 @@ function eligiblePlans(selected,routes,store){
 function pinnedRoutes(provider,selected,routes,store,health,now=Date.now()){
  const route=eligiblePlans(selected,routes,store).find(r=>r.provider===(store.resolveProviderId?.(provider)||provider));
  if(!route)return[];
- const h=health[route.provider];return h&&(h.retryAt==null||h.retryAt>now)?[]:[route];
+ return R.routeHealth(route,health,now)?[]:[route];
 }
 class PlanSelection{
  constructor(dir){this.file=path.join(dir,'plan-selection.json');}

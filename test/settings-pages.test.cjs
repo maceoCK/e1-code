@@ -18,17 +18,20 @@ test('native Settings panes mount one page, switch cleanly and retain account ac
  });
  await page.evaluate(()=>window.e1Settings={request:window.settingsRequest});
  await page.addScriptTag({path:path.resolve(__dirname,'../src/ui/settings/app.js')});
- await page.evaluate(async()=>{const {aa:h,sa:createRoot}=await import('/assets/v1/vendor-frame-Bk3oL3Qp.js'),panels=await import('/assets/v1/e1-settings-pages.js');const root=createRoot(document.querySelector('#fixture'));window.showPage=name=>root.render(h(panels[name],{}));window.showPage('Accounts');});
+ await page.evaluate(async()=>{const {Ha:h,Wa:createRoot}=await import('/assets/v1/vendor-frame-CnSY1sxv.js'),panels=await import('/assets/v1/e1-settings-pages.js');const root=createRoot(document.querySelector('#fixture'));window.showPage=name=>root.render(h(panels[name],{}));window.showPage('Accounts');});
  await page.getByRole('button',{name:'Rename Personal',exact:true}).waitFor();assert.equal(await page.getByRole('tab').count(),0);assert.equal(await page.getByRole('dialog').count(),0);
  await page.getByLabel('Manage Personal',{exact:true}).click();await page.getByRole('button',{name:'Rename',exact:true}).click();await page.getByRole('textbox',{name:'Account label'}).fill('Work');await page.getByRole('button',{name:'Save',exact:true}).click();await page.getByLabel('Manage Work',{exact:true}).waitFor();
- await page.evaluate(()=>window.showPage('Usage'));await page.getByText('When a limit is reached',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Add ChatGPT account'}).isVisible(),false);
+ await page.evaluate(()=>window.showPage('Usage'));await page.getByRole('heading',{name:'Subscription pool',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Add ChatGPT account'}).isVisible(),false);
+ // 10-18 pool controls: strategy and session affinity live on the Usage page.
+ assert.deepEqual(await page.locator('#routing-strategy option').evaluateAll(o=>o.map(v=>v.value)),['reset-first','fill-first','round-robin']);
+ assert.equal(await page.getByRole('checkbox',{name:/Keep chats on the same account/}).isVisible(),true);
  await page.evaluate(()=>window.showPage('Models'));await page.getByLabel('Connection name').waitFor();
  await page.evaluate(()=>window.showPage('Accounts'));await page.getByLabel('Manage Work',{exact:true}).waitFor();assert.deepEqual(errors,[]);
  await page.screenshot({animations:'disabled',path:path.resolve(__dirname,'../evidence/settings-pages-fixture.png')});
 });
 test('all shortcut targets use the native Settings store and update an already-open page',async t=>{
  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
- await page.route('https://settings.test/**',route=>route.fulfill({contentType:route.request().url().endsWith('.js')?'text/javascript':'text/html',body:route.request().url().endsWith('.js')?`const listeners=[];const state={section:null,open(section){state.section=section;window.nativeSettingsCalls.push(section);listeners.forEach(fn=>fn(state));}};export const Eg={subscribe(fn){listeners.push(fn)},getState(){return state}};`:'<!doctype html><body></body>'}));
+ await page.route('https://settings.test/**',route=>route.fulfill({contentType:route.request().url().endsWith('.js')?'text/javascript':'text/html',body:route.request().url().endsWith('.js')?`const listeners=[];const state={section:null,open(section){state.section=section;window.nativeSettingsCalls.push(section);listeners.forEach(fn=>fn(state));}};export const bg={subscribe(fn){listeners.push(fn)},getState(){return state}};`:'<!doctype html><body></body>'}));
  await page.goto('https://settings.test/');await page.evaluate(()=>{window.nativeSettingsCalls=[];window.overlays=[];window.e1Settings={onShow:fn=>window.openFromMain=fn};window.e1NewTab={overlay:(...args)=>window.overlays.push(args)};});
  await page.addScriptTag({path:path.resolve(__dirname,'../src/native-settings-navigation.js')});
  await page.evaluate(async()=>{await window.e1SettingsNavigation.open('accounts');await window.e1SettingsNavigation.open('usage');await window.e1SettingsModal.open('models');});

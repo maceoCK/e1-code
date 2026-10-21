@@ -25,7 +25,10 @@ test('Plan choice is exact, scoped, supports Automatic override, and pauses unav
   assert.equal(p.choice(chat,model),'');assert.equal(p.choice(null,model),'two');
   assert.throws(()=>p.save({modelId:model.id,provider:'api'},f.models,f.routes,f.store),/no longer connected/);
   assert.throws(()=>p.snapshot({modelId:model.id,chatId:'wrong'},f.models,f.routes,f.store),/Invalid chat/);
-  assert.deepEqual(P.pinnedRoutes('two',model,f.routes,f.store,{two:{retryAt:null}}),[]);
+  // A paused pinned plan is unavailable rather than silently switched; legacy indefinite pauses are bounded.
+  const now=Date.now();assert.deepEqual(P.pinnedRoutes('two',model,f.routes,f.store,{two:{retryAt:null,at:now}},now),[]);
+  assert.deepEqual(P.pinnedRoutes('two',model,f.routes,f.store,{two:{retryAt:now+5000}},now),[]);
+  assert.deepEqual(P.pinnedRoutes('two',model,f.routes,f.store,{two:{retryAt:null,at:now}},now+60001).map(r=>r.provider),['two']);
   f.store.provider('two').signedIn=false;assert.deepEqual(P.pinnedRoutes('two',model,f.routes,f.store,{}),[]);
  }finally{fs.rmSync(dir,{recursive:true});}
 });

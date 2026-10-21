@@ -17,7 +17,7 @@ async function relay(upstream, protocol, model, res) {
     usage: { input_tokens: 0, output_tokens: 0 },
   };
   const blocks = new Map(),
-    chatTools = new Map();
+    chatTools = new Map(), anthropicArgs = new Map();
   const emit = (type, data = {}) => {
     if (res.destroyed) throw Error("Client disconnected");
     res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
@@ -81,7 +81,9 @@ async function relay(upstream, protocol, model, res) {
           e.response?.error?.message ||
           "Provider stream failed",
       );
-      error.code = e.error?.code || e.response?.error?.code;
+      const details = e.error || e.response?.error || {};
+      const parsed = require('./routing.cjs').quotaError(e.status || e.response?.status_code, {error:details});
+      error.code = parsed.code; error.status = parsed.status; error.retryAt = parsed.retryAt;
       error.param = e.error?.param || e.response?.error?.param;
       throw error;
     }
@@ -93,9 +95,20 @@ async function relay(upstream, protocol, model, res) {
         started = true;
       } else {
         if (e.type === "content_block_start")
-          result.content[e.index] = e.content_block;
-        if (e.type === "content_block_delta")
+          result.content[e.index] = { ...e.content_block };
+        if (e.type === "content_block_delta") {
           firstDeltaMs ??= Date.now() - began;
+          const block = result.content[e.index];
+          if (!block) throw Error("Provider sent a delta before its content block");
+          if (e.delta.type === 'text_delta') block.text = (block.text || '') + e.delta.text;
+          if (e.delta.type === 'thinking_delta') block.thinking = (block.thinking || '') + e.delta.thinking;
+          if (e.delta.type === 'signature_delta') block.signature = (block.signature || '') + e.delta.signature;
+          if (e.delta.type === 'input_json_delta') anthropicArgs.set(e.index, (anthropicArgs.get(e.index) || '') + e.delta.partial_json);
+        }
+        if (e.type === 'content_block_stop' && anthropicArgs.has(e.index)) {
+          result.content[e.index].input = JSON.parse(anthropicArgs.get(e.index));
+          anthropicArgs.delete(e.index);
+        }
         if (e.type === "message_delta") {
           stop = e.delta.stop_reason;
           result.usage = { ...result.usage, ...e.usage };

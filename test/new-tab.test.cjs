@@ -19,7 +19,12 @@ test('one app menu accelerator opens selector even with child web contents focus
 test('native adapter validates capture and preserves availability and native new-tab actions',{skip:!available},()=>{
  const patch=require('../scripts/patch-tab-actions.cjs');
  const original=fs.readFileSync(path.join(process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp'),'full/original/Claude.app/Contents/Resources/ion-dist',patch.file),'utf8');
- const output=patch.patch(original);assert.ok(output.includes('e1RegisterTabs(e,'));assert.ok(output.includes('ss.getState().addTab(n.id)'));assert.throws(()=>patch.patch(output));
+ // 3.1623.0 session-pane hook Rp: n paneEnabled, i owner, gc terminal tab store, d useEffect.
+ const output=patch.patch(original);assert.ok(output.includes('e1RegisterTabs(n,{'));assert.ok(output.includes('gc.getState().addTab(i.id)'));
+ assert.ok(output.includes('});Cp(n,J5($,169,'),'registration is its own statement before the native shortcut hook');
+ assert.ok(/import\{[^}]*\bho as d\b[^}]*\}from"\.\/vendor-frame-/.test(original),'helper effect is the module useEffect import');
+ assert.ok(output.includes('if(_&&!p)'),'a starting session only opens the terminal pane');
+ assert.throws(()=>patch.patch(output));assert.throws(()=>patch.patch(original.split('{onTogglePane:ve,').join('{onTogglePane:ue,')),/changed/);
 });
 
 test('selector inherits light/dark theme, runs correct actions from any pane, and restores focus',{skip:!available},async t=>{

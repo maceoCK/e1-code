@@ -32,9 +32,14 @@ test('repeated and overlapping completed sign-ins reuse the original connection 
   const first=a.begin(),second=a.begin();children[0].emit('close',0);children[1].emit('close',0);
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(a.data.accounts.length,1);assert.equal(a.data.accounts[0].label,'My Max');
-  for(const p of [first,second]){assert.equal(a.pending.get(p.id).status,'complete');assert.equal(a.pending.get(p.id).accountId,'original');assert.equal(a.account(p.accountId).id,'original');}
-  const third=a.begin();children[2].emit('close',0);await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(a.data.accounts.length,1);assert.equal(a.pending.get(third.id).status,'complete');
-  assert.equal(a.data.accounts[0].configDir,path.join(dir,'claude-profiles',third.accountId));
+  // 10-18 reconnect design: begin() returns a provisional ID for a new sign-in; the
+  // verified pending record (what Settings polls by login ID) resolves to the stable account.
+  for(const p of [first,second]){const done=a.pending.get(p.id);assert.equal(done.status,'complete');assert.equal(done.accountId,'original');assert.equal(a.account(done.accountId).id,'original');
+   assert.equal(a.snapshot().pending.find(v=>v.id===p.id).accountId,'original');assert.equal(a.data.accounts.some(v=>v.id===p.accountId),false,'no provisional account row');}
+  const previousProfile=a.data.accounts[0].configDir,third=a.begin();children[2].emit('close',0);await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(a.data.accounts.length,1);assert.equal(a.pending.get(third.id).status,'complete');assert.equal(a.data.accounts[0].label,'My Max');
+  // Each login writes a fresh isolated profile, which becomes the connection's profile once verified.
+  assert.equal(a.data.accounts[0].configDir,a.pending.get(third.id).draft.configDir);
+  assert.equal(path.dirname(a.data.accounts[0].configDir),path.join(dir,'claude-profiles'));assert.notEqual(a.data.accounts[0].configDir,previousProfile);
  }finally{for(const p of a.pending.values())clearTimeout(p.timer);fs.rmSync(dir,{recursive:true,force:true});}
 });

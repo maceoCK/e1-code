@@ -24,14 +24,33 @@ test('mixed tabs preserve order, select adjacent panes on close and retain nativ
 });
 
 test('mixed tab patches reject source drift and compose with title protection',{skip:!available},()=>{
-  const source=fs.readFileSync(path.join(capture,adapter.file),'utf8');
-  const patched=adapter.patch(require('../scripts/patch-title-renderer.cjs').patch(source));
+  const title=require('../scripts/patch-title-renderer.cjs'),browserStart=require('../scripts/patch-browser-start.cjs');
+  const read=file=>fs.readFileSync(path.join(capture,file),'utf8');
+  const source=read(adapter.file),patched=adapter.patch(source);
   assert.ok(patched.includes('hiddenTileIds:e1Tabs.hiddenIds'));
   assert.ok(patched.includes('layout:e1Tabs.layout'));
-  assert.ok(patched.includes('value:i?.has("chat")===!0'));
-  assert.ok(adapter.patchBrowser(fs.readFileSync(path.join(capture,adapter.browserFile),'utf8')).includes('e1MixedHidden=e1UseMixedHidden(),gt=m&&!e1MixedHidden'));
+  assert.ok(patched.includes('onLayoutChange:e1Tabs.onLayoutChange'));
+  assert.ok(patched.includes('o=a?.has("chat")===!0'));
+  assert.ok(patched.includes('dragHandle:e.id==="chat"?s:null'),'only chat keeps its drag handle');
+  assert.ok(adapter.patchBrowser(read(adapter.browserFile)).includes('e1MixedHidden=e1UseMixedHidden(),un=f&&!e1MixedHidden'));
+  assert.ok(adapter.patchAnchor(read(adapter.anchorFile)).includes('useMixedPreviewVisibility(t,O,k,s?.hidePreview)'));
+  assert.ok(adapter.patchTabs(read(adapter.tabsFile)).includes('export{F as n,E1NativeTabAdapter as t};'));
   assert.throws(()=>adapter.patch(patched));
-  assert.throws(()=>adapter.patch(source.replace('tiles:xe,layout:ke','tiles:xe,layout:changed')));
+  assert.throws(()=>adapter.patch(source.replace('tiles:Be,layout:mt','tiles:Be,layout:changed')));
+  // 3.1623.0 split the title guard (c9543da06) from the tile layout (cc43287c9); the
+  // browser pane is the file shared with browser start. Install in build order.
+  assert.notEqual(title.file,adapter.file);
+  const target=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'e1-mixed-'));
+  try{
+    fs.mkdirSync(path.join(target,'assets/v1'),{recursive:true});
+    title.install(capture,target);browserStart.install(capture,target);adapter.install(capture,target);
+    const out=file=>fs.readFileSync(path.join(target,file),'utf8');
+    assert.equal(out(title.file),title.patch(read(title.file)),'title protection survives the mixed tab install');
+    assert.equal(out(adapter.file),patched);
+    const browser=out(adapter.browserFile);
+    assert.ok(browser.includes('E1BrowserStart')&&browser.includes('un=f&&!e1MixedHidden'),'browser pane carries both browser start and mixed visibility');
+    assert.equal(browser,adapter.patchBrowser(browserStart.patch(read(adapter.browserFile))));
+  }finally{fs.rmSync(target,{recursive:true,force:true});}
 });
 
 test('native mixed tab strip switches types without unmounting contents or duplicating inner strips',{skip:!available},async t=>{
@@ -40,12 +59,12 @@ test('native mixed tab strip switches types without unmounting contents or dupli
   page.on('pageerror',e=>errors.push(e.message));
   await nativeFixture(page,'<main id="fixture" style="height:640px"></main>');
   await page.route('https://native.test/assets/v1/e1-mixed-*.js',route=>route.fulfill({path:path.resolve(__dirname,'../src',new URL(route.request().url()).pathname.split('/').at(-1).replace(/^e1-/,'')),contentType:'text/javascript'}));
-  await page.route('https://native.test/assets/v1/cfe7c4b3b-GwJAekXp.js',route=>route.fulfill({body:adapter.patchTabs(fs.readFileSync(path.join(capture,adapter.tabsFile),'utf8')),contentType:'text/javascript'}));
-  await page.evaluate(async()=>{
-    const {aa:h,sa:createRoot,Ha:useState,Na:useEffect}=await import('/assets/v1/vendor-frame-Bk3oL3Qp.js');
-    const {zc:Provider}=await import('/assets/v1/shared-frame-mKeNK6Hi.js');
+  await page.route('https://native.test/'+adapter.tabsFile,route=>route.fulfill({body:adapter.patchTabs(fs.readFileSync(path.join(capture,adapter.tabsFile),'utf8')),contentType:'text/javascript'}));
+  await page.evaluate(async tabsFile=>{
+    const {Ha:h,Wa:createRoot,wo:useState,ho:useEffect}=await import('/assets/v1/vendor-frame-CnSY1sxv.js');
+    const {_d:Provider}=await import('/assets/v1/shared-frame-Xx-llYK5.js');
     const {useMixedTabs,MixedTabFrame}=await import('/assets/v1/e1-mixed-tabs.js');
-    const {t:NativeTabs}=await import('/assets/v1/cfe7c4b3b-GwJAekXp.js');
+    const {t:NativeTabs}=await import('/'+tabsFile);
     const {useMixedPaneHidden,useMixedPreviewVisibility}=await import('/assets/v1/e1-mixed-tab-context.js');
     window.mounts={};window.closes=[];window.nativeHides=[];window.hidePreview=(...args)=>{window.nativeHides.push(args);return Promise.resolve(true)};window.newTabs=0;window.e1TabPicker={open:()=>window.newTabs++};
     const makeLayout=ids=>({root:{kind:'stack',children:ids.map(tileId=>({kind:'tile',tileId}))}});
@@ -70,7 +89,7 @@ test('native mixed tab strip switches types without unmounting contents or dupli
       return h(Provider,{mode:'dark',children:h('div',{style:{height:'100%',background:'var(--cds-surface-1)'},children:tiles.filter(t=>t.id!=='chat').map(tile=>h('div',{style:{height:'100%',display:model.hiddenIds.has(tile.id)?'none':'block'},children:h(MixedTabFrame,{model,tile,children:h(Content,{pane:tile.id})})},tile.id))})});
     }
     window.root=createRoot(document.querySelector('#fixture'));window.root.render(h(App,{}));
-  });
+  },adapter.tabsFile);
   const visibleTabs=()=>page.getByRole('tablist',{name:'Workspace tabs'});
   await visibleTabs().getByRole('tab',{name:/Terminal 1/}).waitFor({timeout:5000});
   assert.equal(await visibleTabs().count(),1);

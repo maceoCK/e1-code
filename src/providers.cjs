@@ -213,6 +213,10 @@ function promptFor(model, opts = {}) {
   };
 }
 function requestFor(p, model, messages, opts = {}) {
+  if(p.proxy){
+    const req=requestFor({...p,proxy:undefined,protocol:p.proxy.protocol||'anthropic',connectionMode:undefined,baseUrl:p.proxy.origin+'/v1'},model,messages,opts);
+    req.body.model=p.proxy.prefix+'/'+model;return req;
+  }
   const meta = p.models.find((m) => m.id === model) || {},
     prompt = promptFor(model, opts),
     cap = Math.min(Number(opts.maxTokens) || 2048, meta.maxTokens || 32768);
@@ -378,6 +382,7 @@ async function models(p, key) {
 }
 async function* generate(p, key, model, messages, opts = {}, signal) {
   const req = requestFor(p, model, messages, opts);
+  if(p.proxy)p={...p,protocol:p.proxy.protocol||'anthropic'};
   if (key)
     req.headers[p.protocol === "anthropic" ? "x-api-key" : "Authorization"] =
       p.protocol === "anthropic" ? key : `Bearer ${key}`;

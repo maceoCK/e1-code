@@ -235,10 +235,22 @@ function renderRouting(order = state.routing?.order || []) {
   $('routing-pool').innerHTML = ordered.map((id, index) => {
     const p = state.providers.find(p => p.id === id); if (!p) return '';
     const h = state.routingHealth?.[id];
-    const limit = h ? h.retryAt ? `Limited until ${new Date(h.retryAt).toLocaleTimeString()}` : 'Usage limit reached; reset time unavailable' : '';
+    const retryAt = h?.retryAt ?? (h?.at ? h.at + 60000 : 0);
+    const reason = h?.reason === 'authentication' ? 'Sign-in needs attention' : h?.reason === 'temporary' ? 'Temporarily unavailable' : 'Usage limit reached';
+    const limit = h && retryAt > Date.now() ? `${reason} · retry ${new Date(retryAt).toLocaleString()}` : '';
     const billing = p.authType === 'claude-code' ? (p.billing === 'api' ? 'Claude API billing' : p.billing === 'subscription' ? 'Claude plan' : 'Claude billing') : p.authType === 'chatgpt-subscription' ? 'ChatGPT plan' : p.protocol === 'ollama' || /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(p.baseUrl) ? 'Local' : 'Paid API';
-    return `<div class="route-row"><label><input type="checkbox" data-route="${escape(id)}" ${order.includes(id) ? 'checked' : ''}><span>${escape(p.name)}${limit ? `<br><small>${escape(limit)}</small>` : ''}</span><span class="billing-type">${billing}</span></label>${limit ? `<button type="button" data-retry="${escape(id)}">Retry</button>` : ''}<button data-up="${escape(id)}" aria-label="Move ${escape(p.name)} earlier" ${index === 0 ? 'disabled' : ''}>↑</button><button data-down="${escape(id)}" aria-label="Move ${escape(p.name)} later" ${index === ordered.length - 1 ? 'disabled' : ''}>↓</button></div>`;
+    return `<div class="route-row"><label><input type="checkbox" data-route="${escape(id)}" ${order.includes(id) ? 'checked' : ''}><span>${escape(p.name)}<small data-usage-result="${escape(id)}"></small>${limit ? `<br><small>${escape(limit)}</small>` : ''}</span><span class="billing-type">${billing}</span></label>${['claude-code','chatgpt-subscription'].includes(p.authType) && p.signedIn && p.billing !== 'api' ? `<button type="button" data-usage="${escape(id)}">Usage</button>` : ''}${limit ? `<button type="button" data-retry="${escape(id)}">Retry</button>` : ''}<button data-up="${escape(id)}" aria-label="Move ${escape(p.name)} earlier" ${index === 0 ? 'disabled' : ''}>↑</button><button data-down="${escape(id)}" aria-label="Move ${escape(p.name)} later" ${index === ordered.length - 1 ? 'disabled' : ''}>↓</button></div>`;
   }).join('');
+  for (const b of $('routing-pool').querySelectorAll('[data-usage]')) b.onclick = async () => {
+    b.disabled = true;
+    const target = b.closest('.route-row').querySelector('[data-usage-result]'); target.textContent = 'Loading usage…';
+    try {
+      const value = await api('plan/usage', {provider:b.dataset.usage});
+      if (!target.isConnected) return;
+      target.textContent = value.windows?.length ? value.windows.map(w => `${w.label}: ${w.usedPercent == null ? 'unknown' : w.usedPercent + '% used'}${w.resetsAt ? ' · resets ' + new Date(w.resetsAt).toLocaleString() : ''}`).join(' • ') + (value.state !== 'live' ? ' (last reported)' : '') : value.note || 'Usage is unavailable.';
+    } catch(e) { if (target.isConnected) target.textContent = e.message; }
+    finally { b.disabled = false; }
+  };
   for (const b of $('routing-pool').querySelectorAll('[data-retry]')) b.onclick = async () => {
     try { await api('routing/reset', { provider: b.dataset.retry }); state = await api('state'); renderRouting(routingOrder()); }
     catch (e) { $('routing-status').textContent = e.message; }
@@ -281,11 +293,13 @@ function renderAccounts() {
   for (const b of $('subscription-list').querySelectorAll('[data-rename]')) b.onclick = () => renameAccount(b, accounts.find(a => a.id === b.dataset.rename), 'chatgpt-', 'subscription-status');
   $('routing-enabled').checked = state.routing?.enabled === true;
   $('routing-api').checked = state.routing?.allowApiFallback === true;
+  $('routing-strategy').value = state.routing?.strategy || 'reset-first';
+  $('routing-affinity').checked = state.routing?.sessionAffinity !== false;
   $('api-notice').hidden = !$('routing-api').checked;
   renderRouting();
   const status = state.routingStatus;
   $('routing-status').dataset.billing = status?.billing || '';
-  $('routing-status').textContent = status?.billing ? `${status.billing === 'api' ? 'API billing' : status.billing === 'subscription' ? 'Using plan allowance' : status.billing === 'account' ? 'Check Claude billing' : 'Local'} · ${status.label}${status.paused ? ' · Usage limit reached' : ''}` : '';
+  $('routing-status').textContent = status?.billing ? `${status.billing === 'api' ? 'API billing' : status.billing === 'subscription' ? 'Using plan allowance' : status.billing === 'account' ? 'Check Claude billing' : 'Local'} · ${status.label}${status.paused ? ' · Connection cooling down' : status.routingReason === 'session' ? ' · Same account for this chat' : ''}` : '';
   if (accounts.some(a => a.connected && a.planEnabled) && !state.subscriptions.welcomeAcknowledged && !$('plan-welcome').open) $('plan-welcome').showModal();
 }
 async function refreshAccounts() { state = await api('state'); renderAccounts(); renderProviderList(); }
@@ -350,7 +364,7 @@ async function startClaude(accountId, method = 'claudeai') {
 }
 function watchClaude(login) {
   clearInterval(claudePoll);
-  $('claude-status').textContent = 'Complete the official Claude Code sign-in in your browser.';
+  $('claude-status').textContent = 'Complete the official Claude Code sign-in in your browser. Your current connection stays active until verification finishes.';
   const actions = document.createElement('div'); actions.className = 'login-actions';
   const reopen = document.createElement('button'); reopen.textContent = 'Open browser again';
   reopen.onclick = async () => { try { await api('claude/reopen', { id: login.id }); } catch(e) { $('claude-status').textContent = e.message; } };
@@ -362,7 +376,7 @@ function watchClaude(login) {
     if (checking) return; checking = true;
     try {
       const next = await api('state'), p = next.claudeAccounts.pending.find(p => p.id === login.id);
-      if (p?.status === 'waiting') return;
+      if (p?.status === 'waiting' || p?.status === 'verifying') return;
       clearInterval(claudePoll); state = next; renderAccounts(); renderProviderList();
       $('claude-status').textContent = p?.status === 'complete' ? 'Connected. Select the account under Models & connections, then reopen E1 Code to load its models.' : p?.error || 'Sign-in ended.';
     } catch(e) { clearInterval(claudePoll); $('claude-status').textContent = e.message; } finally { checking = false; }
@@ -381,7 +395,8 @@ $('add-subscription').onclick = () => startLogin();
 $('save-routing').onclick = async () => {
   try {
     await api('routing', { enabled: $('routing-enabled').checked, allowApiFallback: $('routing-api').checked,
-      order: routingOrder() });
+      order: routingOrder(), strategy: $('routing-strategy').value, sessionAffinity: $('routing-affinity').checked,
+      requestTimeouts: state.routing?.requestTimeouts });
     await refreshAccounts(); $('routing-status').textContent = 'Changes saved.';
   } catch (e) { $('routing-status').textContent = e.message; }
 };

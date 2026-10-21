@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path');
-const ROUTES=new Set(['state','provider','models','model-browser','preferences','preview','subscription/login','subscription/cancel','subscription/reopen','subscription/acknowledge','subscription/logout','claude/existing','claude/login','claude/refresh','claude/reopen','claude/cancel','claude/disconnect','routing','routing/reset']);
+const ROUTES=new Set(['state','provider','models','model-browser','preferences','preview','subscription/login','subscription/cancel','subscription/reopen','subscription/acknowledge','subscription/logout','claude/existing','claude/login','claude/refresh','claude/reopen','claude/cancel','claude/disconnect','routing','routing/reset','plan/usage']);
 function installSettings(electron,mainWindow,getService){
  const sessions=new WeakSet();let cookiePromise,pendingOpen=null;
  async function request(route,data){

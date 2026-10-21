@@ -1,0 +1,9 @@
+{
+  "version": "8.0.30",
+  "commit": "5be2cdab0869cbaa3d401891f740aebf7e15aa99",
+  "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.30/CLIProxyAPI_8.0.30_darwin_aarch64.tar.gz",
+  "archiveSha256": "39492d8dbb6d8cb4e6775629f190b4860ee35a559b2095df0068ecc92de4b680",
+  "binarySha256": "87becc2b0acc395d45830a4d9846cdfebf46ddd77fbae916a2cd57417b930c37",
+  "platform": "darwin-arm64",
+  "license": "MIT"
+}

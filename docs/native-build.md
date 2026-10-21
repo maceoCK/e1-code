@@ -1,6 +1,6 @@
 # Local native builds
 
-The native adapter is specific to a local capture of Claude Desktop `2.19675.0`. This repository does not contain that app, its extracted code, its fonts, or its native execution engines. Supply only local inputs you are authorized to use. The build is a local integration workflow, not a redistributable app package.
+The native adapter is specific to a local capture of Claude Desktop `3.1623.0`. This repository does not contain that app, its extracted code, its fonts, or its native execution engines. Supply only local inputs you are authorized to use. The build is a local integration workflow, not a redistributable app package.
 
 Required capture layout:
 
@@ -9,7 +9,7 @@ capture-root/
   full/original/Claude.app/
   extracted/app/
     package.json
-    .vite/build/index.chunk-BZdcw7TE.js
+    .vite/build/index.chunk-BLvpT1n4.js (see scripts/patch-native-capabilities.cjs `file`)
     ...the rest of the extracted application...
   readable/resources/ion-dist/assets/v1/cf2613ee5-Btwr9m9F.js
 ```
@@ -42,7 +42,7 @@ Application data uses the existing local `Aster` and `Aster-Workspace-3p` profil
 
 ## Dot renderer input
 
-Dot hosts a separately captured ChatGPT desktop renderer (build 13536). The build copies its `assets/` from `E1_CHATGPT_CAPTURE` into the local bundle and adds export bindings at the host boundary; component bodies are not modified. Neither the capture nor the generated assets are included here.
+Dot hosts a separately captured ChatGPT desktop renderer (ChatGPT 26.1013.40934, build 20770). The build copies its `assets/` from `E1_CHATGPT_CAPTURE` into the local bundle and adds export bindings at the host boundary; component bodies are not modified. Neither the capture nor the generated assets are included here.
 
 ```sh
 E1_CAPTURE_ROOT=/absolute/path/to/capture-root \
@@ -50,7 +50,7 @@ E1_CHATGPT_CAPTURE=/absolute/path/to/chatgpt-webview \
   npm run build
 ```
 
-`E1_CHATGPT_CAPTURE` is the directory containing the captured webview `assets/`. `node scripts/verify-dot-native.cjs` compares the installed app's Dot assets with the capture.
+`E1_CHATGPT_CAPTURE` is the directory containing the captured webview `assets/`; it defaults to `captures/chatgpt-26.1013.40934/asar/webview` in this repository. `node scripts/verify-dot-native.cjs` compares the installed app's Dot assets with the capture.
 
 ## In-place updaters
 

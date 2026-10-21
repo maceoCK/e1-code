@@ -55,5 +55,7 @@ test('plan failover preserves GPT version and cannot match a different vendor by
     {id:'other',protocol:'chat',baseUrl:'https://unrelated.test/v1',models:[{id:'gpt-6.1-sol'}]}];
   const store={data:{providers},provider:id=>providers.find(p=>p.id===id)},routes=G.catalog(store);
   const policy=R.policyFor({enabled:true,allowApiFallback:true,order:['b','other','api'],models:{b:'gpt-6-astra'}});
-  assert.deepEqual(R.candidateRoutes(routes[0],routes,store,policy,{a:{retryAt:null}}).map(r=>[r.provider,r.model]),[['b','gpt-6.1-sol'],['api','gpt-6.1-sol']]);
+  const now=Date.now(),health={a:R.failureHealth({status:429},undefined,now)};
+  assert.deepEqual(R.candidateRoutes(routes[0],routes,store,policy,health,now).map(r=>[r.provider,r.model]),[['b','gpt-6.1-sol'],['api','gpt-6.1-sol']]);
+  assert.deepEqual(R.candidateRoutes(routes[0],routes,store,policy,health,now+60001).map(r=>[r.provider,r.model]),[['a','gpt-6.1-sol'],['b','gpt-6.1-sol'],['api','gpt-6.1-sol']]);
 });

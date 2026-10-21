@@ -1,8 +1,9 @@
-// Claude limits from the shipped first-party Code catalog v1462 (2026-10-01).
+// Claude limits from the shipped first-party Code catalog (runtime.max_input_tokens)
+// in Claude Desktop 3.1623.0; it adds Haiku 5.5 to the 2.19675.0 list (v1462).
 // Apply these only to official Anthropic connections, never similarly named
 // models on third-party endpoints. Explicit connection limits always win.
 const claudeContexts = new Map([
-  ...['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1',
+  ...['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-haiku-5-5',
     'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-opus-4-8',
     'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].map(id => [id, 1000000]),
   ['claude-haiku-4-5-20251001', 200000], ['claude-opus-4-1-20250805', 200000],

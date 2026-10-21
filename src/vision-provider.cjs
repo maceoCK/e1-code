@@ -61,7 +61,7 @@ function createVisionProvider({ store, transport, requestFor, responseFor, relay
     let upstream;
     try {
       const provider = store.provider(route.provider);
-      if (!provider || !['responses', 'chat', 'anthropic', 'ollama'].includes(provider.protocol) || provider.authType === 'claude-code')
+      if (!provider || !['responses', 'chat', 'anthropic', 'ollama'].includes(provider.proxy?.protocol || provider.protocol) || (provider.authType === 'claude-code' && !provider.proxy))
         throw new VisionProviderError('vision provider is not an HTTP inference adapter');
       // Build a fresh, single-user request, never forward tool declarations or
       // replay tool-use/result blocks supplied as content by another caller.
@@ -83,7 +83,7 @@ function createVisionProvider({ store, transport, requestFor, responseFor, relay
         return response;
       }, signal);
       upstream = await send();
-      if (upstream.status === 401 && provider.connectionMode === 'codex') {
+      if (upstream.status === 401 && provider.connectionMode === 'codex' && !provider.proxy) {
         cancelBody(upstream.body);
         upstream = undefined;
         headers.Authorization = 'Bearer ' + await abortable(() => store.subscriptions.token(provider.accountId, true), signal);
@@ -95,9 +95,10 @@ function createVisionProvider({ store, transport, requestFor, responseFor, relay
         throw new VisionProviderError(status === undefined ? 'vision request failed' : `vision provider returned HTTP ${status}`, 'VISION_HTTP_ERROR', status);
       }
       upstream = boundedResponse(upstream, signal);
-      const result = provider.authType === 'chatgpt-subscription' || upstream.headers.get('content-type')?.includes('text/event-stream')
-        ? await abortable(() => relay(upstream, provider.protocol, route.id, { get destroyed() { return signal.aborted; }, write() {}, end() {} }), signal)
-        : await abortable(async () => responseFor(await upstream.json(), provider.protocol, route.id), signal);
+      const protocol = provider.proxy?.protocol || (provider.proxy ? 'anthropic' : provider.protocol);
+      const result = (!provider.proxy && provider.authType === 'chatgpt-subscription') || upstream.headers.get('content-type')?.includes('text/event-stream')
+        ? await abortable(() => relay(upstream, protocol, route.id, { get destroyed() { return signal.aborted; }, write() {}, end() {} }), signal)
+        : await abortable(async () => responseFor(await upstream.json(), protocol, route.id), signal);
       signal.throwIfAborted();
       // Keep stop_reason, usage, and content intact, including partial completion.
       return result;

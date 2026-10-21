@@ -2,14 +2,14 @@ const label=name=>({five_hour:'5-hour limit',seven_day:'Weekly limit',seven_day_
 const percent=n=>typeof n==='number'&&Number.isFinite(n)?Math.max(0,Math.min(100,n)):null;
 const time=value=>{if(value==null)return null;const n=typeof value==='number'?(value<1e12?value*1000:value):Date.parse(value);return Number.isFinite(n)?n:null;};
 function claudeWindows(value,fraction=false){
- const rows=Object.entries(value||{}).filter(([key,v])=>key!=='extra_usage'&&v&&typeof v==='object'&&('utilization'in v||'resets_at'in v||'resetsAt'in v)).map(([key,v])=>({id:key,label:label(key),usedPercent:percent(typeof v.utilization==='number'?v.utilization*(fraction?100:1):null),resetsAt:time(v.resets_at??v.resetsAt)}));
- for(const [index,v] of (Array.isArray(value?.model_scoped)?value.model_scoped:[]).entries())rows.push({id:'model:'+index,label:v.display_name||'Model limit',usedPercent:percent(v.utilization),resetsAt:time(v.resets_at)});
+ const rows=Object.entries(value||{}).filter(([key,v])=>key!=='extra_usage'&&v&&typeof v==='object'&&('utilization'in v||'resets_at'in v||'resetsAt'in v)).map(([key,v])=>({id:key,label:label(key),scope:['five_hour','seven_day'].includes(key)?'account':'model',modelFamily:key==='seven_day_sonnet'?'sonnet':key==='seven_day_opus'?'opus':undefined,windowDurationMins:key==='five_hour'?300:key.startsWith('seven_day')?10080:undefined,usedPercent:percent(typeof v.utilization==='number'?v.utilization*(fraction?100:1):null),resetsAt:time(v.resets_at??v.resetsAt)}));
+ for(const [index,v] of (Array.isArray(value?.model_scoped)?value.model_scoped:[]).entries())rows.push({id:'model:'+index,label:v.display_name||'Model limit',scope:'model',models:Array.isArray(v.models)?v.models:[],usedPercent:percent(v.utilization),resetsAt:time(v.resets_at)});
  return rows;
 }
 function codexWindows(value){
  const buckets=value.rateLimitsByLimitId&&Object.keys(value.rateLimitsByLimitId).length?Object.entries(value.rateLimitsByLimitId):[['codex',value.rateLimits||value]];
  const rows=[];
- for(const [bucket,data] of buckets)for(const key of ['primary','secondary']){const v=data?.[key];if(!v)continue;const mins=v.windowDurationMins;const period=mins===300?'5-hour limit':mins===10080?'Weekly limit':mins?mins%1440===0?`${mins/1440}-day limit`:mins%60===0?`${mins/60}-hour limit`:`${mins}-minute limit`:key==='primary'?'Primary limit':'Secondary limit';rows.push({id:bucket+':'+key,label:(buckets.length>1?(data.limitName||bucket)+' · ':'')+period,usedPercent:percent(v.usedPercent),resetsAt:time(v.resetsAt)});}
+ for(const [bucket,data] of buckets)for(const key of ['primary','secondary']){const v=data?.[key];if(!v)continue;const mins=v.windowDurationMins;const period=mins===300?'5-hour limit':mins===10080?'Weekly limit':mins?mins%1440===0?`${mins/1440}-day limit`:mins%60===0?`${mins/60}-hour limit`:`${mins}-minute limit`:key==='primary'?'Primary limit':'Secondary limit';rows.push({id:bucket+':'+key,scope:bucket==='codex'?'account':'model',models:[],windowDurationMins:mins,label:(buckets.length>1?(data.limitName||bucket)+' · ':'')+period,usedPercent:percent(v.usedPercent),resetsAt:time(v.resetsAt)});}
  return rows;
 }
 class PlanUsage {
@@ -31,6 +31,7 @@ class PlanUsage {
  async fetch({p,a,manager}){
   try{
    const claude=p.authType==='claude-code';
+   if(claude && manager.proxy?.has(p.id)){const data=await manager.proxy.usage('claude',a);return{windows:claudeWindows(data),state:'live',checkedAt:this.now(),...(data.extra_usage?.is_enabled?{extraUsage:true}:{})};}
    if(claude){const data=await this.claudeUsage(manager.executable,a);if(!data.rate_limits_available||!data.rate_limits)throw Error();return{windows:claudeWindows(data.rate_limits),state:'live',checkedAt:this.now(),...(data.rate_limits.extra_usage?.is_enabled?{extraUsage:true}:{})};}
    const data=await manager.usage(a.id),windows=codexWindows(data);
    return{windows,state:'live',checkedAt:this.now(),...(windows.length?{}:{note:'No plan usage windows were reported.'})};

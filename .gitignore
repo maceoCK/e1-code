@@ -16,8 +16,6 @@ recovered-runtime/
 *.asar
 *.dmg
 *.ipa
-*.woff
-*.woff2
 
 # Local data, credentials, chat history, and diagnostics
 .dev-data/
@@ -52,3 +50,7 @@ secrets.json
 test-results/
 playwright-report/
 coverage/
+
+*.woff
+*.woff2
+third_party/cliproxyapi/cli-proxy-api

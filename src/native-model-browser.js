@@ -1,4 +1,5 @@
-import {aa as h, va as createContext, Aa as useContext, Ha as useState, Na as useEffect, Va as useRef} from './vendor-frame-Bk3oL3Qp.js';
+// Claude Desktop 3.1623.0 vendor-frame export names (React 19.2.4).
+import {Ha as h, to as createContext, fo as useContext, wo as useState, ho as useEffect, Co as useRef} from './vendor-frame-CnSY1sxv.js';
 import './e1-model-list.js';
 
 const Query=createContext('');

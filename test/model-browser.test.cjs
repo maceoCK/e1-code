@@ -20,9 +20,9 @@ test('native model menu searches versions, groups models, persists legacy visibi
   await page.evaluate(async models=>{
     window.changes=[];window.pref={showLegacy:false};window.listeners=new Set();window.saves=[];
     window.e1ModelBrowser={read:async()=>({models,preferences:window.pref}),save:async pref=>{window.saves.push(pref);window.pref=pref;return {models,preferences:pref};},onChange:fn=>{window.listeners.add(fn);return ()=>window.listeners.delete(fn);}};
-    const {aa:h,sa:createRoot,Ha:useState}=await import('/assets/v1/vendor-frame-Bk3oL3Qp.js');
-    const {zc:Provider}=await import('/assets/v1/shared-frame-mKeNK6Hi.js');
-    const {oi:ModelSelector}=await import('/assets/v1/shared-16-Coak3mnx.js');
+    const {Ha:h,Wa:createRoot,wo:useState}=await import('/assets/v1/vendor-frame-CnSY1sxv.js');
+    const {_d:Provider}=await import('/assets/v1/shared-frame-Xx-llYK5.js');
+    const {ga:ModelSelector}=await import('/assets/v1/shared-7-Bv_2m9Lo.js');
     function Picker(){
       const [state,setState]=useState({model:'claude-aster-luna'});
       return h(ModelSelector,{catalog:{id:'test',models:models.map((m,i)=>({...m,section:i%2?'main':'overflow'}))},state,

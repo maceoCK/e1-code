@@ -85,3 +85,6 @@ dialog p{font-size:13px;color:var(--muted)}
 
 .account-origin{color:var(--muted);font-size:11px;line-height:1.5;margin-top:5px}
 .account-origin .account-label{font-size:11px;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+
+#routing-strategy { width: min(230px, 45%); margin: 0; }
+[data-usage-result]:not(:empty) { display: block; max-width: 360px; margin-top: 4px; line-height: 1.5; }

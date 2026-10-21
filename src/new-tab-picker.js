@@ -27,8 +27,8 @@
   const trigger=document.activeElement;
   try{
    await window.e1NewTab?.overlay('new-tab',true);
-   const [react,cds]=await (loading||=Promise.all([import('/assets/v1/vendor-frame-Bk3oL3Qp.js'),import('/assets/v1/shared-frame-mKeNK6Hi.js')]).catch(error=>{loading=null;throw error;}));
-   const {sa:createRoot,aa:h}=react,{Ho:Dialog,Qs:Button,zc:Provider}=cds;
+   const [react,cds]=await (loading||=Promise.all([import('/assets/v1/vendor-frame-CnSY1sxv.js'),import('/assets/v1/shared-frame-Xx-llYK5.js')]).catch(error=>{loading=null;throw error;}));
+   const {Wa:createRoot,Ha:h}=react,{qc:Dialog,wu:Button,_d:Provider}=cds;
    const host=document.createElement('div');host.dataset.e1TabHost='';
    const theme=document.querySelector('[aria-label="Primary pane"]')?.closest('.cds-root')||document.querySelector('.cds-root')||document.documentElement;
    document.body.append(host);

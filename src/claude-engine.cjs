@@ -25,6 +25,7 @@ function normalizeResult(result, body) {
     const message = String(result.result || result.errors?.join('; ') || 'Claude Code request failed.').slice(0, 2000);
     const error = Error(message); error.status = result.api_error_status || 502;
     if (error.status === 429 || /(?:usage|rate) limit|hit your limit/i.test(message)) { error.status = 429; error.code = 'claude_usage_limit'; }
+    if (error.status === 401 || /not logged in|please (?:run .*login|log in)|authentication[_ ]error|invalid oauth token/i.test(message)) { error.status = 401; error.code = 'sign_in_required'; }
     throw error;
   }
   const value = result.structured_output;
@@ -44,7 +45,8 @@ function normalizeResult(result, body) {
     usage: { input_tokens: (result.usage?.input_tokens || 0) + (result.usage?.cache_read_input_tokens || 0) + (result.usage?.cache_creation_input_tokens || 0), output_tokens: result.usage?.output_tokens || 0 },
     claudeCode: { model: Object.keys(result.modelUsage || {})[0], auth: 'official-cli', costEstimate: result.total_cost_usd, billing: 'account', speed: result.usage?.speed || null } };
 }
-function generate(provider, body, model, signal, onBilling = () => {}, launch = spawn) {
+function generate(provider, body, model, signal, onBilling = () => {}, launch = spawn, timeouts) {
+  if (signal?.aborted) return Promise.reject(signal.reason);
   if (!provider.signedIn) return Promise.reject(Error('Connect this Claude Code account in Accounts & billing.'));
   if(body.speed==='fast' && (provider.billingMethod!=='console' || !require('./speed-preferences.cjs').modesFor(model.replace(/\[1m\]$/i, '')).includes('fast')))
     return Promise.reject(Error('Fast mode requires a supported model and an approved Console API connection.'));
@@ -52,7 +54,7 @@ function generate(provider, body, model, signal, onBilling = () => {}, launch = 
   return new Promise((resolve, reject) => {
     const args = ['-p', '--safe-mode', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
       '--tools', '', '--permission-mode', 'dontAsk', '--no-session-persistence', '--model', model,
-      '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--json-schema', JSON.stringify(schema)];
+      '--input-format', 'stream-json', '--output-format', 'stream-json', '--include-partial-messages', '--verbose', '--json-schema', JSON.stringify(schema)];
     const effort = body.output_config?.effort;
     if (['low', 'medium', 'high', 'xhigh', 'max'].includes(effort)) args.push('--effort', effort);
     args.push('--settings',JSON.stringify({fastMode:body.speed==='fast'}));
@@ -60,13 +62,15 @@ function generate(provider, body, model, signal, onBilling = () => {}, launch = 
     let buffer = '', result, failure, settled = false, outputBytes = 0, billing = provider.billing || 'account', observedSpeed;
     const reportBilling = (value, info) => { billing = value; onBilling(value, { status: info.status, isUsingOverage: info.isUsingOverage, rateLimitType: info.rateLimitType, resetsAt: info.resetsAt, unifiedWindows: info.unifiedWindows }); };
     const kill = () => child.kill('SIGKILL');
-    const abort = () => { failure = Error('Claude Code request stopped.'); kill(); };
-    const timer = setTimeout(() => { failure = Error('Claude Code request timed out after five minutes.'); kill(); }, 300000);
-    function finish(error, value) { if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort); error ? reject(error) : resolve(value); }
-    signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort();
+    const deadline = require('./request-deadline.cjs').createDeadline(signal, timeouts);
+    const abort = () => { failure = deadline.signal.reason; kill(); finish(failure); };
+    function finish(error, value) { if (settled) return; settled = true; deadline.close(); deadline.signal.removeEventListener('abort', abort); error ? reject(error) : resolve(value); }
+    deadline.signal.addEventListener('abort', abort, { once: true }); if (deadline.signal.aborted) abort();
     child.stderr.resume(); child.stdin.on('error', () => {});
     child.on('error', () => finish(Error('Could not run the official Claude Code executable.')));
     child.stdout.on('data', chunk => {
+      if (settled) return;
+      deadline.touch();
       outputBytes += chunk.length; if (outputBytes > 32e6) { failure = Error('Claude Code response exceeded 32 MB.'); kill(); return; }
       buffer += chunk;
       let end;

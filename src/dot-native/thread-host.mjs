@@ -60,6 +60,9 @@ export function createThreadHost(profile,thread,call,bindings){
  const methods={
   subscribe:options=>{if(options.type==='conversation'){let active=true;return lease(hydrate(options.key.threadId).then(conversation=>{if(active)options.listener({type:'reset',value:bindings.transcript(conversation)});}),()=>{active=false;});}return lease(Promise.resolve(),result.subscribe(options));},
   retainActiveConversation:threadId=>lease(hydrate(threadId)),
+  // Build 20770 opens task tabs through the host RPC (activate, then first page).
+  activateThreadSummary:id=>result.activateThreadSummary(id),
+  ensureConversationFirstPage:async id=>{failures.delete(id);await hydrate(id);return conversations.has(id);},
   getHostId:()=>hostId,readThread,
   sendRequest:async(method,args)=>{if(method==='thread/turns/list')return call('native-turns',args);if(method==='thread/read')return readThread(args.threadId);throw Error('This task action is not connected to E1 yet.');},
   hydratePinnedThreads:async ids=>{const loaded=[];for(const id of ids){await readThread(id);loaded.push(id);}return loaded;},

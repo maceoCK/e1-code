@@ -2,7 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const capture = process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp');
 const ion = path.join(capture, 'full/original/Claude.app/Contents/Resources/ion-dist');
-const available = fs.existsSync(path.join(ion, 'assets/v1/shared-frame-mKeNK6Hi.js'));
+// Available when the capture contains the exact chunks the preferences dialog imports.
+const dialogImports = [...fs.readFileSync(path.resolve(__dirname, '../src/native-preferences-dialog.js'), 'utf8').matchAll(/import\('(\/assets\/v1\/[^']+)'\)/g)].map(m => m[1]);
+const available = dialogImports.length > 0 && dialogImports.every(file => fs.existsSync(path.join(ion, file)));
 
 // Native integration tests use the user's local capture, never distributed assets.
 async function nativeFixture(page, body) {

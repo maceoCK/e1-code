@@ -2,8 +2,10 @@
  if(!window.e1Settings||window.e1SettingsNavigation)return;
  const sections={accounts:'e1-accounts',models:'e1-models',usage:'e1-usage'};
  let storePromise;
- function settingsStore(){return storePromise ||= import('/assets/v1/shared-6-D6JLSylx.js').then(module=>{
-  const store=module.Eg;
+ // Native Settings dialog store (zustand): Claude 3.1623.0 exports it from shared-156 as `bg`.
+ function settingsStore(){return storePromise ||= import('/assets/v1/shared-156-DPjCa3x4.js').then(module=>{
+  const store=module.bg;
+  if(typeof store?.getState?.().open!=='function')throw Error('Native Settings store not found.');
   const sync=state=>void window.e1NewTab?.overlay('settings',state.section!==null);
   store.subscribe(sync);sync(store.getState());return store;
  }).catch(error=>{storePromise=null;throw error;});}

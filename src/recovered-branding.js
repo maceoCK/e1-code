@@ -113,7 +113,8 @@
     const parent = node.parentElement;
     if (!parent || parent.closest(protectedSelector)) return;
     if (parent.closest('h2.sr-only[data-find-omitted]')) {
-      const heading = node.data.replace(/^Claude responded:/, 'Assistant responded:');
+      // 3.1623.0 also renders a bare "Claude responded" heading without a summary.
+      const heading = node.data.replace(/^Claude responded(?=:|$)/, 'Assistant responded');
       if (heading !== node.data) node.data = heading;
       return;
     }
@@ -166,10 +167,11 @@
     for (const el of elements) for (const attr of ['aria-label', 'placeholder', 'title']) {
       const value = el.getAttribute(attr);
       if (el.closest(protectedSelector)) continue;
-      if (el.closest('[aria-label="Chat messages"]') && !el.closest(statusSelector) && !value?.startsWith('Show message actions for Claude responded:')) continue;
+      const actions = /^Show message actions for Claude responded(?=:|$)/;
+      if (el.closest('[aria-label="Chat messages"]') && !el.closest(statusSelector) && !actions.test(value || '')) continue;
       if (updateActivityAttribute(el, attr)) continue;
-      const next = attr === 'aria-label' && el.localName === 'button' && value?.startsWith('Show message actions for Claude responded:')
-        ? value.replace(/^Show message actions for Claude responded:/, 'Show message actions for Assistant responded:') : phrases.get(value);
+      const next = attr === 'aria-label' && el.localName === 'button' && actions.test(value || '')
+        ? value.replace(actions, 'Show message actions for Assistant responded') : phrases.get(value);
       if (next && next !== value) el.setAttribute(attr, next);
     }
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let node;

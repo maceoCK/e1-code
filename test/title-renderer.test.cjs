@@ -2,20 +2,20 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const path = require('node:path');
-const { patch } = require('../scripts/patch-title-renderer.cjs');
+const fs = require('node:fs');
+const { patch, file } = require('../scripts/patch-title-renderer.cjs');
 
-// The recovered secondary-pane behavior, isolated from the rest of the client.
-const guard = `window.pinTitle = () => {
-  let t=document.title,r=document.head,i=new(Me(r))(() => {
-    if (document.title !== t) document.title = t;
-  });
-  i.observe(r, { childList: true, subtree: true, characterData: true });
-  return () => i.disconnect();
-};`;
+// The recovered secondary-pane behavior (3.1623.0 pf effect body), isolated from
+// the rest of the client. j is the window-scoped MutationObserver factory.
+const observer = 'let e=document.title,n=document.head,r=new(j(n))(()=>{document.title!==e&&(document.title=e)});return r.observe(n,{childList:!0,subtree:!0,characterData:!0}),()=>{r.disconnect()}';
+const guard = `window.pinTitle = () => {${observer}};`;
 
 test('title patch rejects missing or ambiguous native guards', () => {
+  const captured = path.join(process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp'), 'full/original/Claude.app/Contents/Resources/ion-dist', file);
+  if (fs.existsSync(captured)) assert.equal(fs.readFileSync(captured, 'utf8').split(observer).length, 2, 'fixture is the captured guard');
   assert.throws(() => patch('different client'), /title guard changed/);
   assert.throws(() => patch(guard + guard), /title guard changed/);
+  assert.throws(() => patch(patch(guard)), /title guard changed/);
 });
 
 test('secondary-pane title pinning settles with branding and leaves input responsive', { timeout: 15000 }, async () => {
@@ -33,7 +33,7 @@ test('secondary-pane title pinning settles with branding and leaves input respon
         window.guardCallbacks = 0;
         window.runaway = false;
         // Bound the old failure so this regression test cannot hang Chromium.
-        window.Me = () => class extends MutationObserver {
+        window.j = () => class extends MutationObserver {
           constructor(callback) {
             super((...args) => {
               if (++window.guardCallbacks > 100) { window.runaway = true; this.disconnect(); return; }

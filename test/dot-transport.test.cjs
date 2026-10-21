@@ -54,3 +54,13 @@ test('Dot service uses its native transport including one auth refresh; shared m
   assert.equal(calls[1].accountId, 'one');
   assert.equal(manager.transport, modelTransport);
 });
+
+test('Dot transport allows only the realtime computer offer added in ChatGPT build 20770', async () => {
+  const f = fixture();
+  await f.transport('one', 'https://realtime.chatgpt.com/v1/cua?source=aeon&thread_id=t&aeon_id=d', { method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: 'offer' });
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].credentials, 'omit');
+  for (const [url, method] of [['https://realtime.chatgpt.com/v1/cua', 'GET'], ['https://realtime.chatgpt.com/v1/other', 'POST'], ['https://realtime.chatgpt.com.evil.test/v1/cua', 'POST'], ['https://user@realtime.chatgpt.com/v1/cua', 'POST']])
+    await assert.rejects(f.transport('one', url, { method }), /Invalid Dot service URL/);
+  assert.equal(f.calls.length, 1);
+});
