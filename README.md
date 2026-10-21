@@ -41,6 +41,16 @@ This is a simpler development surface, not the native Claude-style client.
 
 Development state is stored under `.dev-data/`. `ASTER_DATA` overrides that directory, and `ASTER_PORT` sets a port. Provider keys can be supplied with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENROUTER_API_KEY`; the application does not automatically load `.env` files. Browser development keeps entered keys in memory. The desktop host uses Electron's encrypted storage. Pi integration can also read the current user's local provider configuration.
 
+## Install on another Mac
+
+On an Apple silicon Mac with the GitHub CLI logged in to an account that can read this repository:
+
+```sh
+gh api repos/maceoCK/e1-code/contents/scripts/install-prebuilt.sh -H 'Accept: application/vnd.github.raw' | bash
+```
+
+It downloads the newest prebuilt, signed `E1 Code.app` from this repository's `app-*` releases, checks its SHA-256 and code signature, and installs it into `~/Applications` (an existing copy is kept alongside). Add `bash -s -- --tag app-<commit>` for a specific build, `--dir <folder>` for another location, or `--no-open`. Your accounts, keys and chat history are not part of the app: sign in again on the new Mac.
+
 ## Build the app
 
 On an Apple silicon Mac with Node 22.12+, Python 3 and the Xcode Command Line Tools:
