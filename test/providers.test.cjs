@@ -117,6 +117,24 @@ test("truncated and explicit error streams cannot report success", async () => {
     }
   }
 });
+test("DeepSeek endpoint is seeded and its credential stays endpoint-bound", () => {
+  const preset = P.initialProviders().find((p) => p.id === "deepseek");
+  assert.ok(preset, "new workspaces seed the DeepSeek connection");
+  assert.equal(preset.protocol, "chat");
+  assert.equal(preset.baseUrl, "https://api.deepseek.com/v1");
+  process.env.DEEPSEEK_API_KEY = "sk-deepseek-test";
+  try {
+    assert.equal(P.resolveKey(preset, ""), "sk-deepseek-test");
+    assert.equal(
+      P.resolveKey({ ...preset, baseUrl: "https://example.com/v1" }, ""),
+      "",
+    );
+  } finally {
+    delete process.env.DEEPSEEK_API_KEY;
+  }
+  assert.equal(P.profileFor("deepseek-chat"), "general");
+  assert.equal(P.profileFor("deepseek-reasoner"), "reasoning");
+});
 test("non-local HTTP and embedded URL credentials are rejected", () => {
   for (const baseUrl of [
     "http://example.com",

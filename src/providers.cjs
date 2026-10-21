@@ -46,6 +46,14 @@ const PRESETS = [
     models: [],
   },
   {
+    id: "deepseek",
+    name: "DeepSeek",
+    protocol: "chat",
+    baseUrl: "https://api.deepseek.com/v1",
+    credential: "deepseek",
+    models: [],
+  },
+  {
     id: "custom",
     name: "Custom endpoint",
     protocol: "chat",
@@ -160,6 +168,11 @@ function resolveKey(p, stored) {
     p.baseUrl === "https://openrouter.ai/api/v1"
   )
     return process.env.OPENROUTER_API_KEY || "";
+  if (
+    p.credential === "deepseek" &&
+    p.baseUrl === "https://api.deepseek.com/v1"
+  )
+    return process.env.DEEPSEEK_API_KEY || "";
   if (p.credential?.startsWith("pi:")) {
     const id = p.credential.slice(3),
       pi = piFiles(),
