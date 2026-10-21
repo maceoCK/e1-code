@@ -76,6 +76,9 @@ async function prepareApp(key, { source = process.env.E1_UPSTREAM_SOURCE || 'aut
   const pin = pins[key];
   if (!pin) throw Error('Unknown upstream app: ' + key);
   if (!['auto', 'installed', 'download'].includes(source)) throw Error('Upstream source must be auto, installed or download.');
+  // Releases are architecture-specific (native modules change the app.asar hash),
+  // and E1's other native parts are arm64. Build on Apple silicon.
+  if (pin.arch && process.arch !== pin.arch) throw Error(`E1 builds target ${pin.arch} (Apple silicon); this Node is ${process.arch}.`);
   const capture = path.join(root, pin.capture), marker = path.join(capture, '.prepared.json'), fingerprint = sha256(JSON.stringify(pin));
   if (fs.existsSync(marker) && JSON.parse(fs.readFileSync(marker, 'utf8')).pin === fingerprint && layoutComplete(key, capture)) return capture;
   const label = `${pin.name} ${pin.version}`, envKey = key.toUpperCase();

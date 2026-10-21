@@ -6,7 +6,7 @@ npm run setup:signing   # optional, once per Mac
 npm run build
 ```
 
-`npm run build` writes `dist/E1 Code.app`. It never replaces an installed app; `E1_APP_BUNDLE` can explicitly select another destination. The build requires macOS, Node 22.12+, Python 3, the Xcode Command Line Tools (`clang`, `codesign`, `iconutil`) and Node-API headers (found in your Node installation, or fetched once with `npx node-gyp install`; `E1_NODE_HEADERS` overrides).
+`npm run build` writes `dist/E1 Code.app`. Builds target Apple silicon (arm64): the pinned upstream releases and the bundled runtimes are arm64, and each release's signed `app.asar` hash is architecture-specific. It never replaces an installed app; `E1_APP_BUNDLE` can explicitly select another destination. The build requires macOS, Node 22.12+, Python 3, the Xcode Command Line Tools (`clang`, `codesign`, `iconutil`) and Node-API headers (found in your Node installation, or fetched once with `npx node-gyp install`; `E1_NODE_HEADERS` overrides).
 
 ## Upstream inputs
 
@@ -14,8 +14,8 @@ E1 is a set of patches and modules applied to specific third-party releases. Thi
 
 | Input | Pinned release | Source |
 | --- | --- | --- |
-| Claude Desktop | `3.1623.0`, Developer ID team `Q6L2SF6YDW` | `/Applications/Claude.app` if it is this release, otherwise `downloads.claude.ai` (~380 MB) |
-| ChatGPT (Dot renderer) | `26.1013.40934` build `20770`, team `2DC432GLL2` | `/Applications/ChatGPT.app` if it is this release, otherwise `persistent.oaistatic.com` (~690 MB) |
+| Claude Desktop | `3.1623.0`, Developer ID team `Q6L2SF6YDW` | `/Applications/Claude.app` if it is this release, otherwise the arm64 release from `downloads.claude.ai` (~250 MB) |
+| ChatGPT (Dot renderer) | `26.1013.40934` build `20770`, team `2DC432GLL2` | `/Applications/ChatGPT.app` if it is this release, otherwise the arm64 release from `persistent.oaistatic.com` (~690 MB) |
 | CLIProxyAPI | `8.0.30` (MIT) | GitHub release archive, SHA-256 pinned in `third_party/cliproxyapi/manifest.json` |
 
 Pins live in `third_party/upstream.json`. An app is used only after `codesign --verify --deep --strict`, the pinned Developer ID team, bundle id, version and build, and the signed `ElectronAsarIntegrity` hash of its `app.asar` all match; a download that fails is deleted. Completed downloads are kept in `captures/.downloads/` and reused.

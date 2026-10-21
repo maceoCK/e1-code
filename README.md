@@ -43,14 +43,14 @@ Development state is stored under `.dev-data/`. `ASTER_DATA` overrides that dire
 
 ## Build the app
 
-On macOS with Node 22.12+, Python 3 and the Xcode Command Line Tools:
+On an Apple silicon Mac with Node 22.12+, Python 3 and the Xcode Command Line Tools:
 
 ```sh
 npm ci
 npm run build
 ```
 
-The result is `dist/E1 Code.app`. The build fetches what this repository does not contain: Claude Desktop `3.1623.0` and ChatGPT `26.1013.40934`, the exact releases E1's hooks are written against. It uses your installed copies when they are those versions, otherwise the official download URLs (about 1.1 GB the first time). It also fetches the pinned CLIProxyAPI runtime. Each app must pass its Developer ID signature, pinned team, bundle id, version and signed `app.asar` hash before it is used (`third_party/upstream.json`, `scripts/prepare-upstream.cjs`). Nothing proprietary is committed or published here; prepared inputs live in the gitignored `captures/`.
+The result is `dist/E1 Code.app`. The build fetches what this repository does not contain: Claude Desktop `3.1623.0` and ChatGPT `26.1013.40934`, the exact releases E1's hooks are written against. It uses your installed copies when they are those versions, otherwise the official arm64 downloads (about 950 MB the first time). It also fetches the pinned CLIProxyAPI runtime. Each app must pass its Developer ID signature, pinned team, bundle id, version and signed `app.asar` hash before it is used (`third_party/upstream.json`, `scripts/prepare-upstream.cjs`). Nothing proprietary is committed or published here; prepared inputs live in the gitignored `captures/`.
 
 Optional: `npm run setup:signing` creates a persistent local signing identity so Keychain approvals survive rebuilds; without it the build is ad-hoc signed. See [native build details](docs/native-build.md). The integration is pinned to Claude Desktop `3.1623.0` (ported from `2.19675.0` on 2026-10-20); its hooks deliberately reject incompatible layouts.
 

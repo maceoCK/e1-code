@@ -13,6 +13,8 @@ test('upstream pins use official HTTPS hosts and complete Developer ID identitie
     assert.match(pin.teamId, /^[A-Z0-9]{10}$/);
     assert.match(pin.asarHeaderSha256, /^[a-f0-9]{64}$/);
     assert.ok(pin.url.includes(pin.version), key + ' URL names its pinned version');
+    assert.equal(pin.arch, 'arm64');
+    assert.ok(pin.url.includes(key === 'claude' ? '/darwin/arm64/' : '-darwin-arm64-'), key + ' URL is the arm64 release the asar hash pins');
     assert.ok(pin.capture.startsWith('captures/'), key + ' capture stays in the gitignored captures/ tree');
   }
 });
