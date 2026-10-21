@@ -82,7 +82,9 @@ test('original room, header, composer, message actions and paging mount using re
   }};
  },{profile});
  await page.goto('https://dot.test/shell');const view=page.frame({name:'native'});await view.getByText('Help organize my day',{exact:true}).waitFor({timeout:8000}).catch(async error=>{fs.writeFileSync(path.join(evidence,'dot-native-render-failure.json'),JSON.stringify({errors,text:await view.locator('body').innerText(),requests:await page.evaluate(()=>window.requests)},null,2));throw error;});await view.getByText('clear plan',{exact:true}).waitFor();
- assert.equal(await view.locator('[data-e1-original-component]').count(),1);assert.equal(await view.locator('.dot-bubble,.dot-composer').count(),0);
+ assert.equal(await view.locator('[data-e1-original-component]').count(),1);
+ // Live rooms are gated off in E1, so the header must not show a status placeholder that can never resolve.
+ assert.equal(await view.getByText('Thinking',{exact:true}).count(),0);assert.equal(await view.locator('span[role=status].gap-1.text-sm').count(),0);assert.equal(await view.locator('.dot-bubble,.dot-composer').count(),0);
  assert.equal(await view.locator('strong').filter({hasText:'clear plan'}).count(),1);
  assert.ok((await view.locator('textarea,[contenteditable=true]').count())>0);
  assert.ok((await page.evaluate(()=>window.requests)).some(r=>r.url.includes('before=m1')));
