@@ -11,7 +11,7 @@ const observer = 'let e=document.title,n=document.head,r=new(j(n))(()=>{document
 const guard = `window.pinTitle = () => {${observer}};`;
 
 test('title patch rejects missing or ambiguous native guards', () => {
-  const captured = path.join(process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp'), 'full/original/Claude.app/Contents/Resources/ion-dist', file);
+  const captured = path.join(process.env.E1_CAPTURE_ROOT || require('../scripts/prepare-upstream.cjs').capturePath('claude'), 'full/original/Claude.app/Contents/Resources/ion-dist', file);
   if (fs.existsSync(captured)) assert.equal(fs.readFileSync(captured, 'utf8').split(observer).length, 2, 'fixture is the captured guard');
   assert.throws(() => patch('different client'), /title guard changed/);
   assert.throws(() => patch(guard + guard), /title guard changed/);

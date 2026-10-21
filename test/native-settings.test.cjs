@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const { nativePicker } = require('../src/model-picker.cjs');
 const os = require('node:os');
-const capture = process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp');
+const capture = process.env.E1_CAPTURE_ROOT || require('../scripts/prepare-upstream.cjs').capturePath('claude');
 const patcher = require('../scripts/patch-native-capabilities.cjs');
 const available = fs.existsSync(path.join(capture, 'extracted/app', patcher.file));
 // Apply the build's capability patch to the locally supplied capture.

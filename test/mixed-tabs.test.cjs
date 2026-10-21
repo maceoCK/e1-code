@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),path=requ
 const {chromium}=require('playwright');
 const {nativeFixture,available}=require('./native-ui-fixture.cjs');
 const adapter=require('../scripts/patch-mixed-tabs.cjs');
-const capture=path.join(process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp'),'full/original/Claude.app/Contents/Resources/ion-dist');
+const capture=path.join(process.env.E1_CAPTURE_ROOT||require('../scripts/prepare-upstream.cjs').capturePath('claude'),'full/original/Claude.app/Contents/Resources/ion-dist');
 const stateModule=()=>import('data:text/javascript;base64,'+fs.readFileSync(path.resolve(__dirname,'../src/mixed-tab-state.js')).toString('base64'));
 test('mixed tabs preserve order, select adjacent panes on close and retain native confirmations',async()=>{
   const {MixedTabs}=await stateModule(),calls=[],storage=new Map();storage.getItem=storage.get.bind(storage);storage.setItem=storage.set.bind(storage);

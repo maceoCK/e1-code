@@ -41,7 +41,7 @@ test('native renderer recognizes workflow-only capability without adding a ficti
   const adapter = require('../scripts/patch-workflow-renderer.cjs'), patch = adapter.patch;
   // 3.1623.0 mapper XM (was vD): GM is the effort enum, VM the native xhigh gate.
   const source = 'function XM(e){return e.flatMap(e=>{let t=GM.safeParse(e.id);return!t.success||t.data==="xhigh"&&!VM()?[]:[{...e,id:t.data}]})}';
-  const captured = path.join(process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp'), 'full/original/Claude.app/Contents/Resources/ion-dist', adapter.file);
+  const captured = path.join(process.env.E1_CAPTURE_ROOT || require('../scripts/prepare-upstream.cjs').capturePath('claude'), 'full/original/Claude.app/Contents/Resources/ion-dist', adapter.file);
   if (fs.existsSync(captured)) assert.ok(fs.readFileSync(captured, 'utf8').includes(source), 'fixture is the captured native mapper');
   const vm = require('node:vm');
   const context = { GM: { safeParse: id => ({ success: ['low', 'medium', 'high', 'xhigh', 'max'].includes(id), data: id }) }, VM: () => true };

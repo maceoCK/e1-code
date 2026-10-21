@@ -7,6 +7,8 @@
     "test": "node --test test/*.test.cjs",
     "dev": "node src/dev.cjs",
     "build": "node scripts/build.cjs",
+    "prepare:upstream": "node scripts/prepare-upstream.cjs",
+    "setup:signing": "node scripts/setup-signing.cjs",
     "postinstall": "node scripts/sync-ui-vendor.cjs",
     "dev:chat": "ASTER_PROTOTYPE=1 node src/dev.cjs",
     "test:browser:install": "playwright install chromium",

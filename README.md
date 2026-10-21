@@ -41,9 +41,18 @@ This is a simpler development surface, not the native Claude-style client.
 
 Development state is stored under `.dev-data/`. `ASTER_DATA` overrides that directory, and `ASTER_PORT` sets a port. Provider keys can be supplied with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENROUTER_API_KEY`; the application does not automatically load `.env` files. Browser development keeps entered keys in memory. The desktop host uses Electron's encrypted storage. Pi integration can also read the current user's local provider configuration.
 
-## Native integration
+## Build the app
 
-See [native build inputs and commands](docs/native-build.md). The integration is pinned to the captured client version `3.1623.0` (ported from `2.19675.0` on 2026-10-20); its hooks deliberately reject incompatible layouts. No native app download or compiled desktop release is published here.
+On macOS with Node 22.12+, Python 3 and the Xcode Command Line Tools:
+
+```sh
+npm ci
+npm run build
+```
+
+The result is `dist/E1 Code.app`. The build fetches what this repository does not contain: Claude Desktop `3.1623.0` and ChatGPT `26.1013.40934`, the exact releases E1's hooks are written against. It uses your installed copies when they are those versions, otherwise the official download URLs (about 1.1 GB the first time). It also fetches the pinned CLIProxyAPI runtime. Each app must pass its Developer ID signature, pinned team, bundle id, version and signed `app.asar` hash before it is used (`third_party/upstream.json`, `scripts/prepare-upstream.cjs`). Nothing proprietary is committed or published here; prepared inputs live in the gitignored `captures/`.
+
+Optional: `npm run setup:signing` creates a persistent local signing identity so Keychain approvals survive rebuilds; without it the build is ad-hoc signed. See [native build details](docs/native-build.md). The integration is pinned to Claude Desktop `3.1623.0` (ported from `2.19675.0` on 2026-10-20); its hooks deliberately reject incompatible layouts.
 
 The public checkout uses system fonts. Browser dependencies are generated from locked npm packages by `scripts/sync-ui-vendor.cjs`, with their license notices copied alongside them.
 
@@ -61,7 +70,7 @@ The public checkout uses system fonts. Browser dependencies are generated from l
 | Settings and development chat UI | `src/server.cjs`, `src/ui/settings/`, `src/ui/` |
 | Automated fixtures | `test/` |
 
-Native integration tests additionally use a compatible local capture via `E1_CAPTURE_ROOT` (the directory containing `full/original/Claude.app`), and Dot renderer tests use `E1_CHATGPT_CAPTURE`. Those tests are reported as skipped when no capture is available; recovered assets are never copied into the repository.
+Native integration and Dot renderer tests use the inputs prepared by `npm run prepare:upstream` (or `npm run build`); `E1_CAPTURE_ROOT` and `E1_CHATGPT_CAPTURE` point them elsewhere. They are reported as skipped until the inputs exist; upstream files are never copied into the repository.
 
 `npm test` uses local fixtures and mocked provider responses. It does not verify access to a real subscription, charge an API account, or prove native desktop UI parity. Manual scripts with names such as `*-live`, `*-smoke`, `native-*`, and `record-*` may use locally configured accounts, execute tools, make billable requests, and produce private evidence. They are not run by CI and some require the original local development layout.
 

@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {chromium}=require('playwright'),{nativeFixture,available}=require('./native-ui-fixture.cjs');
 const patcher=require('../scripts/patch-settings-pages.cjs');
 test('Settings pages are registered in native route parsing, navigation/search and panel loading',{skip:!available},()=>{
- const root=path.join(process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp'),'full/original/Claude.app/Contents/Resources/ion-dist');
+ const root=path.join(process.env.E1_CAPTURE_ROOT||require('../scripts/prepare-upstream.cjs').capturePath('claude'),'full/original/Claude.app/Contents/Resources/ion-dist');
  for(const file of patcher.files){const original=fs.readFileSync(path.join(root,file),'utf8'),result=patcher.patch(file,original);for(const {id}of patcher.sections)assert.ok(result.includes(id));assert.throws(()=>patcher.patch(file,result),/changed/);}
 });
 test('native Settings panes mount one page, switch cleanly and retain account actions',{skip:!available},async t=>{

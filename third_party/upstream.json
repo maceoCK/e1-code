@@ -1,0 +1,25 @@
+{
+  "claude": {
+    "name": "Claude Desktop",
+    "version": "3.1623.0",
+    "bundleId": "com.anthropic.claudefordesktop",
+    "teamId": "Q6L2SF6YDW",
+    "asarHeaderSha256": "1d6a0cda5ad20c7d10c9092eabe15c8def9b61b3ef4255ce320f4d4bdb0ebb36",
+    "url": "https://downloads.claude.ai/releases/darwin/universal/3.1623.0/Claude-e751f9d5249da803676835a68a9b15463ec5b1d7.zip",
+    "downloadBytes": 395904906,
+    "installed": "/Applications/Claude.app",
+    "capture": "captures/claude-3.1623.0"
+  },
+  "chatgpt": {
+    "name": "ChatGPT",
+    "version": "26.1013.40934",
+    "build": "20770",
+    "bundleId": "com.openai.codex",
+    "teamId": "2DC432GLL2",
+    "asarHeaderSha256": "b276579474c7f0413ae388aaf39d00337f7615a858774156f1268c68519ebab1",
+    "url": "https://persistent.oaistatic.com/codex-app-prod/ChatGPT-darwin-arm64-26.1013.40934.zip",
+    "downloadBytes": 722770743,
+    "installed": "/Applications/ChatGPT.app",
+    "capture": "captures/chatgpt-26.1013.40934"
+  }
+}

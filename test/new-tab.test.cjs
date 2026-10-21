@@ -18,7 +18,7 @@ test('one app menu accelerator opens selector even with child web contents focus
 
 test('native adapter validates capture and preserves availability and native new-tab actions',{skip:!available},()=>{
  const patch=require('../scripts/patch-tab-actions.cjs');
- const original=fs.readFileSync(path.join(process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp'),'full/original/Claude.app/Contents/Resources/ion-dist',patch.file),'utf8');
+ const original=fs.readFileSync(path.join(process.env.E1_CAPTURE_ROOT||require('../scripts/prepare-upstream.cjs').capturePath('claude'),'full/original/Claude.app/Contents/Resources/ion-dist',patch.file),'utf8');
  // 3.1623.0 session-pane hook Rp: n paneEnabled, i owner, gc terminal tab store, d useEffect.
  const output=patch.patch(original);assert.ok(output.includes('e1RegisterTabs(n,{'));assert.ok(output.includes('gc.getState().addTab(i.id)'));
  assert.ok(output.includes('});Cp(n,J5($,169,'),'registration is its own statement before the native shortcut hook');

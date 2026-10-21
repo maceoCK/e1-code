@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const capture = process.env.E1_CAPTURE_ROOT || path.resolve(__dirname, '../../outputs/claude-desktop-decomp');
+const capture = process.env.E1_CAPTURE_ROOT || require('../scripts/prepare-upstream.cjs').capturePath('claude');
 const ion = path.join(capture, 'full/original/Claude.app/Contents/Resources/ion-dist');
 // Available when the capture contains the exact chunks the preferences dialog imports.
 const dialogImports = [...fs.readFileSync(path.resolve(__dirname, '../src/native-preferences-dialog.js'), 'utf8').matchAll(/import\('(\/assets\/v1\/[^']+)'\)/g)].map(m => m[1]);

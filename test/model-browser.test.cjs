@@ -14,7 +14,7 @@ test('native model menu searches versions, groups models, persists legacy visibi
   const browser=await chromium.launch();t.after(()=>browser.close());
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await nativeFixture(page,'<div id="root"></div>');
-  const capture=process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp');
+  const capture=process.env.E1_CAPTURE_ROOT||require('../scripts/prepare-upstream.cjs').capturePath('claude');
   const source=fs.readFileSync(path.join(capture,'full/original/Claude.app/Contents/Resources/ion-dist',patch.file),'utf8');
   await page.route('https://native.test/'+patch.file,route=>route.fulfill({body:patch.patch(source),contentType:'text/javascript'}));
   await page.evaluate(async models=>{

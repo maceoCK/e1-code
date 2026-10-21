@@ -1,7 +1,8 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-// ChatGPT 26.1013.40934 (build 20770). captures/ is gitignored; E1_CHATGPT_CAPTURE overrides the local default.
-const build=20770,chatgptVersion='26.1013.40934';
-const capture=path.resolve(process.env.E1_CHATGPT_CAPTURE||path.join(__dirname,'../captures/chatgpt-26.1013.40934/asar/webview'));
+// Pinned in third_party/upstream.json (ChatGPT 26.1013.40934, build 20770). captures/ is gitignored and
+// filled by scripts/prepare-upstream.cjs; E1_CHATGPT_CAPTURE overrides it.
+const pin=require('../third_party/upstream.json').chatgpt,build=Number(pin.build),chatgptVersion=pin.version;
+const capture=path.resolve(process.env.E1_CHATGPT_CAPTURE||path.join(__dirname,'..',pin.capture,'asar/webview'));
 const shared='app-shared-52443cbe9ac4.js';
 const initial='app-initial-90eb42395b7d.js';
 const components=['native-room-ecbd2ba1aadf.js','composer-controls-db9f3c1ee1ee.js','header-249e95c31449.js','side-panel-ca01b35697cf.js','panel-77a7049c0701.js','open-local-conversation-background-agent-146379433346.js'];

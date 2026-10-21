@@ -71,7 +71,7 @@ test('browser start uses real actions, same-tab navigation, persistent dismissal
 
 test('browser adapter targets only the new-tab branch and rejects source drift',{skip:!available},()=>{
   const adapter=require('../scripts/patch-browser-start.cjs');
-  const capture=path.join(process.env.E1_CAPTURE_ROOT||path.resolve(__dirname,'../../outputs/claude-desktop-decomp'),'full/original/Claude.app/Contents/Resources/ion-dist');
+  const capture=path.join(process.env.E1_CAPTURE_ROOT||require('../scripts/prepare-upstream.cjs').capturePath('claude'),'full/original/Claude.app/Contents/Resources/ion-dist');
   const source=fs.readFileSync(path.join(capture,adapter.file),'utf8'),patched=adapter.patch(source);
   // 3.1623.0: start page ga (serverId c, cwd i) under parent Co, whose active preview tab is Y.
   assert.ok(patched.includes('serverId:t,activeTabId:Y,onRun:Tc,'));

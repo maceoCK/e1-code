@@ -4,10 +4,9 @@ const fs = require("node:fs"),
   assert = require("node:assert/strict"),
   crypto = require("node:crypto");
 const base = path.resolve(__dirname, ".."),
-  root = path.resolve(base, ".."),
   original = path.join(
-    root,
-    "outputs/claude-desktop-decomp/full/original/Claude.app/Contents/Resources/ion-dist",
+    process.env.E1_CAPTURE_ROOT || require("./prepare-upstream.cjs").capturePath("claude"),
+    "full/original/Claude.app/Contents/Resources/ion-dist",
   ),
   installed = path.join(
     os.homedir(),

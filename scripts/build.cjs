@@ -4,7 +4,8 @@ const fs = require("node:fs"),
   crypto = require("node:crypto");
 let bundleTransaction;
 // The renderer and main-process patches target this exact Claude Desktop build.
-const capturedVersion = "3.1623.0";
+const upstream = require("./prepare-upstream.cjs");
+const capturedVersion = upstream.pins.claude.version;
 // The main-process chunk is owned by patch-native-capabilities.cjs; don't
 // duplicate its hashed file name here.
 function nativeCapabilitiesChunk() {
@@ -36,12 +37,17 @@ const rendererHead = () =>
   "</head>";
 (async () => {
   const base = path.resolve(__dirname, ".."),
-    capture = process.env.E1_CAPTURE_ROOT && path.resolve(process.env.E1_CAPTURE_ROOT),
+    capture = path.resolve(process.env.E1_CAPTURE_ROOT || upstream.capturePath("claude")),
     out = path.join(base, "dist"),
     installedBundle = process.env.E1_APP_BUNDLE ? path.resolve(process.env.E1_APP_BUNDLE) : path.join(out, "E1 Code.app"),
     stage = path.join(base, ".package");
   if (process.platform !== 'darwin') throw Error('Native builds require macOS.');
-  if (!capture) throw Error('Set E1_CAPTURE_ROOT to your local compatible capture. Proprietary application files are not included in this repository. See docs/native-build.md.');
+  // Third-party inputs this repository does not contain: the pinned Claude and
+  // ChatGPT releases (verified local install or official download) and the
+  // pinned CLIProxyAPI runtime. E1_CAPTURE_ROOT / E1_CHATGPT_CAPTURE opt out.
+  if (!process.env.E1_CAPTURE_ROOT) await upstream.prepareApp("claude");
+  if (!process.env.E1_CHATGPT_CAPTURE) await upstream.prepareApp("chatgpt");
+  await upstream.prepareProxy();
   for (const relative of ['full/original/Claude.app/Contents/Info.plist', 'extracted/app/package.json', path.posix.join('extracted/app', nativeCapabilitiesChunk()), 'full/original/Claude.app/Contents/Resources/ion-dist/index.html'])
     if (!fs.existsSync(path.join(capture, relative))) throw Error('Missing local build input: ' + relative + '. See docs/native-build.md.');
   const captureVersion = JSON.parse(fs.readFileSync(path.join(capture, 'extracted/app/package.json'), 'utf8')).version;
@@ -228,7 +234,7 @@ for app in list(r.glob('*Helper*.app')):
   const proxyVendor = path.join(base, 'third_party/cliproxyapi');
   const proxyManifest = JSON.parse(fs.readFileSync(path.join(proxyVendor, 'manifest.json'), 'utf8'));
   const proxyBinary = fs.readFileSync(path.join(proxyVendor, 'cli-proxy-api'));
-  if (crypto.createHash('sha256').update(proxyBinary).digest('hex') !== proxyManifest.binarySha256) throw Error('CLIProxyAPI checksum mismatch; run python3 third_party/cliproxyapi/fetch.py.');
+  if (crypto.createHash('sha256').update(proxyBinary).digest('hex') !== proxyManifest.binarySha256) throw Error('CLIProxyAPI checksum mismatch; run node scripts/prepare-upstream.cjs cliproxyapi.');
   const proxyTarget = path.join(bundle, 'Contents/Resources/cliproxyapi');
   fs.rmSync(proxyTarget, { recursive: true, force: true });
   fs.mkdirSync(proxyTarget, { recursive: true });

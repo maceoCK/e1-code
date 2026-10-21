@@ -1,30 +1,35 @@
 # Local native builds
 
-The native adapter is specific to a local capture of Claude Desktop `3.1623.0`. This repository does not contain that app, its extracted code, its fonts, or its native execution engines. Supply only local inputs you are authorized to use. The build is a local integration workflow, not a redistributable app package.
-
-Required capture layout:
-
-```text
-capture-root/
-  full/original/Claude.app/
-  extracted/app/
-    package.json
-    .vite/build/index.chunk-BLvpT1n4.js (see scripts/patch-native-capabilities.cjs `file`)
-    ...the rest of the extracted application...
-  readable/resources/ion-dist/assets/v1/cf2613ee5-Btwr9m9F.js
-```
-
-The original app must include its complete `Contents/Resources/ion-dist` renderer. The readable JavaScript file is a local input to logo motion mapping. Generated frames and vendor source remain excluded from Git.
-
 ```sh
 npm ci
-node scripts/setup-signing.cjs
-E1_CAPTURE_ROOT=/absolute/path/to/capture-root npm run build
+npm run setup:signing   # optional, once per Mac
+npm run build
 ```
 
-The public build script writes to `dist/E1 Code.app` and stages files in `.package/`. It does not default to replacing an installed app. `E1_APP_BUNDLE` can explicitly select another destination. The build requires macOS, Python 3, `iconutil`, and `codesign`. Close any app at the selected destination before rebuilding. If changing the supplied capture, start with a fresh staging directory.
+`npm run build` writes `dist/E1 Code.app`. It never replaces an installed app; `E1_APP_BUNDLE` can explicitly select another destination. The build requires macOS, Node 22.12+, Python 3, the Xcode Command Line Tools (`clang`, `codesign`, `iconutil`) and Node-API headers (found in your Node installation, or fetched once with `npx node-gyp install`; `E1_NODE_HEADERS` overrides).
 
-The build applies the local model/workflow and model-picker adapters, copies E1 source, updates branding, and signs the result. It packages into a staged copy and replaces the destination only after the archive hash, Keychain helper checksum, and code signature verify. The credential helper requires a persistent local signing identity. `scripts/setup-signing.cjs` creates that identity in the current user's Keychain; it changes local Keychain state and is not run by `npm ci` or CI. Signing keys, certificates, and identity configuration are never included in this repository.
+## Upstream inputs
+
+E1 is a set of patches and modules applied to specific third-party releases. This repository contains none of their files. `scripts/prepare-upstream.cjs` (run automatically by the build, or `npm run prepare:upstream`) prepares them under the gitignored `captures/`:
+
+| Input | Pinned release | Source |
+| --- | --- | --- |
+| Claude Desktop | `3.1623.0`, Developer ID team `Q6L2SF6YDW` | `/Applications/Claude.app` if it is this release, otherwise `downloads.claude.ai` (~380 MB) |
+| ChatGPT (Dot renderer) | `26.1013.40934` build `20770`, team `2DC432GLL2` | `/Applications/ChatGPT.app` if it is this release, otherwise `persistent.oaistatic.com` (~690 MB) |
+| CLIProxyAPI | `8.0.30` (MIT) | GitHub release archive, SHA-256 pinned in `third_party/cliproxyapi/manifest.json` |
+
+Pins live in `third_party/upstream.json`. An app is used only after `codesign --verify --deep --strict`, the pinned Developer ID team, bundle id, version and build, and the signed `ElectronAsarIntegrity` hash of its `app.asar` all match; a download that fails is deleted. Completed downloads are kept in `captures/.downloads/` and reused.
+
+- `E1_UPSTREAM_SOURCE=installed|download|auto` forces a source (default `auto`).
+- `E1_UPSTREAM_APP_CLAUDE` / `E1_UPSTREAM_APP_CHATGPT` point at another local copy of the pinned app.
+- `E1_UPSTREAM_URL_CLAUDE` / `E1_UPSTREAM_URL_CHATGPT` use a mirror of the official zip; its contents are verified the same way.
+- `E1_CAPTURE_ROOT` / `E1_CHATGPT_CAPTURE` skip preparation and use an existing capture with the same layout (`full/original/Claude.app` + `extracted/app`, and a webview directory containing `assets/`).
+
+Updating to a newer Claude or ChatGPT release means re-porting the needle patches (`scripts/patch-*.cjs`) and then updating the pins. Each patch throws if its anchor no longer matches exactly once.
+
+## What the build does
+
+The build applies the model/workflow, model-picker, tab, browser, Settings and Dot adapters, copies E1 source into the archive as `aster/`, updates branding, embeds CLIProxyAPI, and signs the result. It packages into a staged copy and replaces the destination only after the archive hash, Keychain helper checksum, and code signature verify. The credential helper requires a persistent local signing identity for stable Keychain access; `scripts/setup-signing.cjs` creates that identity in the current user's Keychain. It changes local Keychain state and is not run by `npm ci`, the build, or CI. Without it the build is ad-hoc signed. Signing keys, certificates, and identity configuration are never included in this repository. Public distribution would require Developer ID signing and notarization; the local identity is not a release identity.
 
 ### Keychain access across updates
 
@@ -34,23 +39,13 @@ The helper handles application credential encryption. A native Node-API module i
 
 Fresh installs create their own storage key. Upgrading from an earlier build may require **Always Allow** once for the helper's access to **E1 Code Safe Storage**. A locked Keychain or an explicit denial still requires user action. Routine rebuilds reuse the helper. A helper source/signing change deliberately stops the build; after review, `E1_UPDATE_KEYCHAIN_HELPER=1` allows an explicit update and preserves the old helper. macOS may require approval again for that exceptional change. Public distribution also requires appropriate Developer ID signing and notarization; the local development identity is not a release identity.
 
-The native build needs Xcode Command Line Tools and Node-API headers. Install headers with `npx node-gyp install`, or set `E1_NODE_HEADERS` to the directory containing `node_api.h`.
-
 `node scripts/verify-keychain-helper.cjs` checks two different signed parent builds, a fresh disposable Keychain item, cross-build decryption, native browser-key access without interaction, and rejection of an unrelated caller. The installed app accepts `--e1-check-keychain` to check existing credential readability without printing credentials. Add `--e1-cookie-write`, rebuild, then run with `--e1-cookie-read` to verify a synthetic encrypted browser cookie across builds. The check uses a separate `E1 Storage Verification` profile and removes its test cookie after reading it.
 
 Application data uses the existing local `Aster` and `Aster-Workspace-3p` profile names for history continuity. Launching a build can use those existing profiles. Make a local backup before testing changes against an important chat library.
 
 ## Dot renderer input
 
-Dot hosts a separately captured ChatGPT desktop renderer (ChatGPT 26.1013.40934, build 20770). The build copies its `assets/` from `E1_CHATGPT_CAPTURE` into the local bundle and adds export bindings at the host boundary; component bodies are not modified. Neither the capture nor the generated assets are included here.
-
-```sh
-E1_CAPTURE_ROOT=/absolute/path/to/capture-root \
-E1_CHATGPT_CAPTURE=/absolute/path/to/chatgpt-webview \
-  npm run build
-```
-
-`E1_CHATGPT_CAPTURE` is the directory containing the captured webview `assets/`; it defaults to `captures/chatgpt-26.1013.40934/asar/webview` in this repository. `node scripts/verify-dot-native.cjs` compares the installed app's Dot assets with the capture.
+Dot hosts the ChatGPT desktop renderer from the pinned ChatGPT release (26.1013.40934, build 20770), prepared like the Claude input above. The build copies its webview `assets/` into the local bundle and adds export bindings at the host boundary, plus one status-placeholder adjustment in the header atom; component bodies are not modified. `node scripts/verify-dot-native.cjs` compares a built app's Dot assets with the capture (`E1_DOT_ION` selects the build).
 
 ## In-place updaters
 
