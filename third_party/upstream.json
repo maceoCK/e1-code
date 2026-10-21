@@ -23,5 +23,23 @@
     "downloadBytes": 722770743,
     "installed": "/Applications/ChatGPT.app",
     "capture": "captures/chatgpt-26.1013.40934"
+  },
+  "release": {
+    "repo": "maceoCK/e1-code",
+    "tag": "upstream-3.1623.0-26.1013.40934",
+    "assets": {
+      "claude": {
+        "name": "Claude-3.1623.0-darwin-arm64.zip",
+        "sha256": "920d353b4ae46ea3b332bec52c0868dd8a4aeece0c62ed6e648111e9bbfa67b2"
+      },
+      "chatgpt": {
+        "name": "ChatGPT-26.1013.40934-darwin-arm64.zip",
+        "sha256": "e82f46d3d9183134e2449d4cdcb49a135e952599db47ec36c6fe0c969a78c5da"
+      },
+      "cliproxyapi": {
+        "name": "cli-proxy-api-8.0.30-darwin-arm64",
+        "sha256": "87becc2b0acc395d45830a4d9846cdfebf46ddd77fbae916a2cd57417b930c37"
+      }
+    }
   }
 }

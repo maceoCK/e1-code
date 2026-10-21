@@ -6,7 +6,8 @@ const { pins } = upstream;
 
 test('upstream pins use official HTTPS hosts and complete Developer ID identities', () => {
   const hosts = { claude: 'downloads.claude.ai', chatgpt: 'persistent.oaistatic.com' };
-  for (const [key, pin] of Object.entries(pins)) {
+  for (const key of ['claude', 'chatgpt']) {
+    const pin = pins[key];
     const url = new URL(pin.url);
     assert.equal(url.protocol, 'https:');
     assert.equal(url.host, hosts[key]);
@@ -17,6 +18,22 @@ test('upstream pins use official HTTPS hosts and complete Developer ID identitie
     assert.ok(pin.url.includes(key === 'claude' ? '/darwin/arm64/' : '-darwin-arm64-'), key + ' URL is the arm64 release the asar hash pins');
     assert.ok(pin.capture.startsWith('captures/'), key + ' capture stays in the gitignored captures/ tree');
   }
+});
+
+test('private release assets are pinned by SHA-256 and named for their pinned versions', () => {
+  const { release } = pins;
+  assert.match(release.repo, /^[\w.-]+\/[\w.-]+$/);
+  assert.ok(release.tag.includes(pins.claude.version) && release.tag.includes(pins.chatgpt.version));
+  for (const key of ['claude', 'chatgpt', 'cliproxyapi']) {
+    const asset = release.assets[key];
+    assert.match(asset.sha256, /^[a-f0-9]{64}$/);
+    assert.ok(asset.name.includes('darwin-arm64'));
+  }
+  assert.ok(release.assets.claude.name.includes(pins.claude.version));
+  assert.ok(release.assets.chatgpt.name.includes(pins.chatgpt.version));
+  const proxy = require('../third_party/cliproxyapi/manifest.json');
+  assert.ok(release.assets.cliproxyapi.name.includes(proxy.version));
+  assert.equal(release.assets.cliproxyapi.sha256, proxy.binarySha256);
 });
 
 test('patch adapters target the pinned upstream versions', () => {
