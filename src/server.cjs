@@ -291,6 +291,8 @@ async function startServer({ dataDir, vault, port = 0, legacy, settingsOnly = fa
         "/model-list.js": "../model-list.js",
         "/marked.js": "vendor/marked.umd.js",
         "/purify.js": "vendor/purify.min.js",
+        "/serif.woff2": "fonts/serif.woff2",
+        "/sans.woff2": "fonts/sans.woff2",
       };
       if (!files[url.pathname]) return json(res, { error: "Not found" }, 404);
       const type = {

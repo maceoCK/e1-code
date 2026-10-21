@@ -11,6 +11,7 @@ const files = {
   'dompurify/LICENSE-MPL': 'dompurify-LICENSE-MPL',
 };
 fs.mkdirSync(output, { recursive: true });
+// The repository commits the exact copies the app ships; only fill in what is missing.
 for (const [source, name] of Object.entries(files))
-  fs.copyFileSync(path.join(root, 'node_modules', source), path.join(output, name));
+  if (!fs.existsSync(path.join(output, name))) fs.copyFileSync(path.join(root, 'node_modules', source), path.join(output, name));
 console.log('Prepared browser dependencies and license notices.');

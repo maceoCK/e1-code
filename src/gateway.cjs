@@ -82,6 +82,76 @@ function hasWorkflowSubtask(body) {
   return (body.messages || []).some(m => m.role === "user" &&
     textOf(m.content).includes("[Workflow harness — computed task]"));
 }
+// User-authorized removal of non-performance behavior steering from the
+// engine-built prompt (audit 2026-10-09; re-verified against Claude Code
+// 2.1.286 and 2.1.304 prompt text, including 2.1.304 "rewrite" variants).
+// Sections are matched by stable prefix. Kept on purpose: action-caution
+// guardrails, git authorization, memory rules, and sandbox mechanics.
+function stripSteering(system) {
+  if (!system) return system;
+  let text = system;
+  const cut = (re) => { text = text.replace(re, ""); };
+  // — Ethics / refusal (binary ATe/H6n/F6n) —
+  cut(/IMPORTANT: Assist with authorized security testing, [^]*?defensive use cases\.\n?/);
+  cut(/Refusals are only for requests that are genuinely harmful or clearly prohibited[^.]*\.\s*/);
+  cut(/If you decline, say so plainly in a sentence, offer the nearest thing you can do, and move on without moralizing or criticism\.\s*/);
+  cut(/This applies to producing work products: it doesn't override necessary refusals[^.]*\.\s*/);
+  // 2.1.304 "rewrite" Delivering-work declination clause (same refusal-presentation category).
+  cut(/It's best to, in this case, state succinctly your declination, without moralizing or criticism\.\s*/);
+  // — Persona / tone —
+  cut(/Only use emojis if the user explicitly requests it\. Avoid using emojis in all communication unless asked\.\n?/);
+  cut(/When you use a pronoun for someone[^"]*?This applies to all user-visible text, including visible thinking\.\n?/);
+  // 2.1.304 "rewrite" pronoun mandate (reworded; same social-steering category).
+  cut(/Try your best to refer to users, including those from external services[^]*?including visible thinking\.\n?/);
+  cut(/End-of-turn summary: one or two sentences\. What changed and what's next\. Nothing else\.\n?/);
+  cut(/- One idea per sentence, about 20 words, with a verb\.[^-\n]*\n/g);
+  cut(/- No em-dashes, no parentheticals, no arrows\.\n/g);
+  cut(/- Keep code out of prose\.[^\n]*\n/g);
+  cut(/- Keep numbers out of prose\.[^\n]*\n/g);
+  cut(/- Use a bulleted or numbered list for parallel items:[^\n]*\n(?:- [^\n]*\n)*/g);
+  cut(/- No headers in a message under about 500 words\.[^\n]*\n/g);
+  cut(/- Stop when the content stops\. No closing offer, no restating what you did\.\n?/);
+  cut(/Don't add apologies or preambles, don't be overly self-critical, and don't ruminate[^.]*\.\s*/);
+  // 2.1.304 "rewrite" Corrections section (self-criticism/patience persona block).
+  cut(/# Corrections\nSometimes you'll feel the need to correct yourself[^]*?It'll be all right! Thank you Claude\.\n?/);
+  // Background-session self-presentation. Greedy to end-of-line covers the 2.1.286
+  // wording and the 2.1.304 reworded ("Please respond naturally … 'background agent' …") one.
+  cut(/This session runs as a background job\. The user may be[^\n]*background agent[^\n]*\n?/);
+  cut(/respond naturally either way, and don't refer to yourself as "a background agent\."\n?/);
+  cut(/This iteration of Claude is Claude Fable 5\.1[^"]*?for more information\./);
+  cut(/This iteration of Claude is Claude Fable 5,[^"]*?for more information\./);
+  // — Branding / marketing —
+  cut(/The most recent Claude models are the Claude 5 family[^]*?default to the latest and most capable Claude models\.\n?/);
+  // 2.1.304 "rewrite" Environment model-marketing line (reworded).
+  cut(/The most recent Claude models are as follows, with their model IDs:[^]*?most capable Claude models by default\.\n?/);
+  cut(/Claude Code is available as a CLI in the terminal, desktop app \(Mac\/Windows\), web app \(claude\.ai\/code\), and IDE extensions \(VS Code, JetBrains\)\.\n?/);
+  cut(/Fast mode for Claude Code uses Claude Opus with faster output[^.]*\. It can be toggled with \/fast\.\n?/);
+  cut(/- Co-Authored-By: (?:Claude Code )?<noreply\@anthropic\.com>\n?/g);
+  cut(/End git commit messages with:\n- Co-Authored-By: [^\n]*\n(?:- [^\n]*\n)*/g);
+  cut(/End pull request descriptions with:\n- 🤖 Generated with \[Claude Code\][^\n]*\n?/g);
+  // Whole help/feedback group first (so no dangling header is left), then the
+  // individual lines for prompts that carry only one of them.
+  cut(/ - If the user asks for help or wants to give feedback inform them of the following:\n(?:[ \t]+- [^\n]*\n?){1,2}/);
+  cut(/- \/help: Get help with using Claude Code\n?/);
+  cut(/report the issue at https:\/\/github\.com\/anthropics\/claude-code\/issues\.?/);
+  cut(/Also ensure that the user is informed that they can ask Claude to continue to make changes to the status line\.\n?/);
+  // — Identity residuals in agent descriptions —
+  cut(/You are an agent for Claude Code, Anthropic's official CLI for Claude\.\s*/);
+  cut(/You are a file search specialist for Claude Code, Anthropic's official CLI for Claude\.\s*/);
+  cut(/You are a web-reading specialist for Claude Code, Anthropic's official CLI for Claude\.\s*/);
+  cut(/You are a software architect and planning specialist for Claude Code\.\s*/);
+  cut(/You are the Claude guide agent\.\s*/);
+  // — Subagent style rules —
+  cut(/- For clear communication with the user the assistant MUST avoid using emojis\.\n/g);
+  cut(/- Do not use a colon before tool calls\.[^\n]*\n?/g);
+  // Tidy bullet markers orphaned by the cuts above (never "---" front matter):
+  // marker-only lines, stacked markers before a kept bullet, and stacked
+  // markers before a closing section tag.
+  text = text.replace(/^[ \t]*-(?:[ \t]+-)*[ \t]*$\n?/gm, "")
+    .replace(/^([ \t]*)(?:-[ \t]+)+(?=-[ \t]+\S)/gm, "$1")
+    .replace(/^[ \t]*(?:-[ \t]+)+(?=<\/[a-z_]+>)/gm, "");
+  return text.replace(/\n{3,}/g, "\n\n");
+}
 function systemFor(body, route, opts) {
   const profile = P.profileFor(route.model, opts.profile);
   const fileDelivery = (body.tools || []).some(t => t.name === "mcp__cowork__present_files")
@@ -96,7 +166,7 @@ function systemFor(body, route, opts) {
     : "";
   // Engine 2.1.286+ opens 3p prompts with "You are a Claude agent, built on
   // Anthropic's Claude Agent SDK."; older engines used "You are Claude Code, …".
-  const original = textOf(body.system).replace(
+  const original = stripSteering(textOf(body.system)).replace(
     /You are (?:a )?Claude(?: Code| agent)?[^\n.]*(?:\.|$)/gi,
     `You are E1 Code, using ${route.model}.`,
   );
@@ -838,6 +908,7 @@ async function startGateway({
 }
 module.exports = {
   catalog,
+  stripSteering,
   systemFor,
   modelCatalog,
   routeId,

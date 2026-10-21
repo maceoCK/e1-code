@@ -8,7 +8,9 @@ if (!files.length) throw Error('No tracked files to check. Stage the source firs
 const forbidden = /(^|\/)(?:node_modules|vendor|dist|outputs|evidence|captures?|work|recovered-runtime|signing|\.package|\.icon\.iconset|\.dev-data|\.demo-data|\.claude|\.codex|\.pi)(?:\/|$)|(?:^|\/)\.env(?:\..*)?$|\.(?:app|asar|dmg|ipa|woff2?|pem|key|p12|pfx|keychain(?:-db)?|jsonl|log)(?:\/|$)|(?:^|\/)(?:\.dev-url|workspace\.json|chat-library\.json|subscription-accounts\.json|claude-accounts\.json|settings-ui\.json|library-identity\.json|aster-gateway\.json|auth\.json|credentials\.json|secrets\.json)$/i;
 const problems = [];
 for (const file of files) {
-  if (forbidden.test(file) && file !== '.env.example') problems.push(file + ': excluded artifact or private data path');
+  // The private repository ships the app's bundled UI fonts and vendored browser libraries.
+  const shipped = /^src\/ui\/(?:fonts\/[\w-]+\.woff2|vendor\/[\w.-]+)$/.test(file);
+  if (forbidden.test(file) && !shipped && file !== '.env.example') problems.push(file + ': excluded artifact or private data path');
   const item = path.join(root, file);
   if (!fs.existsSync(item)) { problems.push(file + ': tracked file missing'); continue; }
   if (fs.lstatSync(item).isSymbolicLink()) { problems.push(file + ': symlinks are not allowed in the public snapshot'); continue; }

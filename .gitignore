@@ -1,6 +1,5 @@
 # Dependencies and generated third-party assets
 node_modules/
-src/ui/vendor/
 
 # Build products and locally supplied proprietary input
 dist/
@@ -51,6 +50,4 @@ test-results/
 playwright-report/
 coverage/
 
-*.woff
-*.woff2
 third_party/cliproxyapi/cli-proxy-api

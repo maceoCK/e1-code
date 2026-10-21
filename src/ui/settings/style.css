@@ -1,3 +1,11 @@
+@font-face {
+  font-family: AsterSans;
+  src: url("/sans.woff2");
+}
+@font-face {
+  font-family: AsterSerif;
+  src: url("/serif.woff2");
+}
 :root {
   --bg: #f1f3ef;
   --rail: #e4e9e3;
@@ -12,7 +20,7 @@
   --shadow: 0 8px 28px #253e3810;
   color-scheme: light;
   font-family:
-    system-ui,
+    AsterSans,
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
