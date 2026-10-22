@@ -51,3 +51,9 @@ playwright-report/
 coverage/
 
 third_party/cliproxyapi/cli-proxy-api
+
+# The assembled vendor archives are rebuilt from the committed parts; only the
+# parts and their manifests live in git.
+upstream/*
+!upstream/*.zip.parts
+!upstream/*.parts

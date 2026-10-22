@@ -1,0 +1,12 @@
+{
+  "name": "cli-proxy-api-8.0.30-darwin-arm64",
+  "totalBytes": 64543794,
+  "totalSha256": "87becc2b0acc395d45830a4d9846cdfebf46ddd77fbae916a2cd57417b930c37",
+  "parts": [
+    {
+      "file": "part-01",
+      "sha256": "87becc2b0acc395d45830a4d9846cdfebf46ddd77fbae916a2cd57417b930c37",
+      "bytes": 64543794
+    }
+  ]
+}

@@ -20,20 +20,21 @@ E1 is a set of patches and modules applied to specific third-party releases. `sc
 
 Sources are tried in order:
 
-1. **installed**: `/Applications/Claude.app` and `/Applications/ChatGPT.app` when they are exactly these releases.
-2. **release**: this private repository's release `upstream-3.1623.0-26.1013.40934`, downloaded with `gh release download` (your GitHub login). The three assets are SHA-256 pinned in `third_party/upstream.json`.
-3. **download**: the vendors' official URLs (`downloads.claude.ai`, `persistent.oaistatic.com`, the CLIProxyAPI GitHub release).
+1. **committed**: the pinned vendor archives committed to this repository as SHA-256-checked split parts under `upstream/`. A fresh clone builds with no network access, no `gh` login, and no local install. `scripts/verify-committed-upstream.cjs` re-checks every part and the assembled archive against the pins.
+2. **installed**: `/Applications/Claude.app` and `/Applications/ChatGPT.app` when they are exactly these releases.
+3. **release**: this repository's release `upstream-3.1623.0-26.1013.40934`, downloaded with `gh release download` (your GitHub login). The three assets are SHA-256 pinned in `third_party/upstream.json`.
+4. **download**: the vendors' official URLs (`downloads.claude.ai`, `persistent.oaistatic.com`, the CLIProxyAPI GitHub release).
 
 An app is used only after `codesign --verify --deep --strict`, the pinned Developer ID team, bundle id, version and build, and the signed `ElectronAsarIntegrity` hash of its `app.asar` all match; an archive that fails is deleted. Completed downloads are kept in `captures/.downloads/` and reused.
 
-- `E1_UPSTREAM_SOURCE=installed|release|download|auto` restricts the source (default `auto`, the order above).
+- `E1_UPSTREAM_SOURCE=committed|installed|release|download|auto` restricts the source (default `auto`, the order above).
 - `E1_UPSTREAM_APP_CLAUDE` / `E1_UPSTREAM_APP_CHATGPT` point at another local copy of the pinned app.
 - `E1_UPSTREAM_URL_CLAUDE` / `E1_UPSTREAM_URL_CHATGPT` use a mirror of the official zip; its contents are verified the same way.
 - `E1_CAPTURE_ROOT` / `E1_CHATGPT_CAPTURE` skip preparation and use an existing capture with the same layout (`full/original/Claude.app` + `extracted/app`, and a webview directory containing `assets/`).
 
-The release assets are third-party software kept for this private repository only. Keep the repository and its releases private.
+The committed parts and release assets are third-party software (Anthropic's and OpenAI's applications, and the MIT-licensed CLIProxyAPI). They are pinned to exact versions so this repository builds reproducibly.
 
-Updating to a newer Claude or ChatGPT release means re-porting the needle patches (`scripts/patch-*.cjs`), then updating the pins and uploading a new upstream release. Each patch throws if its anchor no longer matches exactly once.
+Updating to a newer Claude or ChatGPT release means re-porting the needle patches (`scripts/patch-*.cjs`), then updating the pins, re-splitting the archives into `upstream/`, and uploading a new upstream release. Each patch throws if its anchor no longer matches exactly once.
 
 ## What the build does
 

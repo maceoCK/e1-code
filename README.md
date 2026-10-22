@@ -2,7 +2,7 @@
 
 Experimental local AI workspace with multiple provider connections, account-independent chat history, exact-model account routing, and per-chat billing controls.
 
-This repository contains E1 Code's integration layer, gateway, tests, and branding. The Claude Desktop and ChatGPT applications, recovered vendor code, proprietary fonts, native engines, private chats, credentials, and local build outputs are **not included**. The desktop integration requires separately supplied compatible application files; cloning this repository alone does not reproduce the installed Claude-style desktop UI.
+This repository contains E1 Code's integration layer, gateway, tests, and branding, plus the exact pinned vendor archives it builds on — committed under `upstream/` as SHA-256-checked split parts. Cloning this repository alone is enough to build `dist/E1 Code.app` on an Apple-silicon Mac: no separate app copies, `gh` login, or vendor downloads are required (see [docs/native-build.md](docs/native-build.md)). Proprietary fonts, native engines, private chats, credentials, and local build outputs are **not included**.
 
 ## What is here
 
@@ -60,7 +60,7 @@ npm ci
 npm run build
 ```
 
-The result is `dist/E1 Code.app`. The build packs in what E1 is built on: Claude Desktop `3.1623.0` and ChatGPT `26.1013.40934`, the exact arm64 releases E1's hooks are written against, plus the pinned CLIProxyAPI runtime. It takes them from your installed copies when they match, otherwise from this private repository's [upstream release](https://github.com/maceoCK/e1-code/releases/tag/upstream-3.1623.0-26.1013.40934) using your `gh` login (about 1 GB the first time), and as a last resort from the vendors' official download URLs. Whatever the source, each app must pass its Developer ID signature, pinned team, bundle id, version and signed `app.asar` hash before it is used, and release assets are SHA-256 pinned (`third_party/upstream.json`, `scripts/prepare-upstream.cjs`). Prepared inputs live in the gitignored `captures/`. This repository is private; don't make it or its release public, since the release carries Anthropic's and OpenAI's apps.
+The result is `dist/E1 Code.app`. The build packs in what E1 is built on: Claude Desktop `3.1623.0` and ChatGPT `26.1013.40934`, the exact arm64 releases E1's hooks are written against, plus the pinned CLIProxyAPI runtime. The archives are committed to this repository as SHA-256-checked split parts under `upstream/`, so a fresh clone builds with no network access or `gh` login; a matching local install is used as a faster path when present, and the repository's [upstream release](https://github.com/maceoCK/e1-code/releases/tag/upstream-3.1623.0-26.1013.40934) and the vendors' official download URLs remain fallbacks. Whatever the source, each app must pass its Developer ID signature, pinned team, bundle id, version and signed `app.asar` hash before it is used, and all archives are SHA-256 pinned (`third_party/upstream.json`, `scripts/prepare-upstream.cjs`). Prepared inputs live in the gitignored `captures/`.
 
 Optional: `npm run setup:signing` creates a persistent local signing identity so Keychain approvals survive rebuilds; without it the build is ad-hoc signed. See [native build details](docs/native-build.md). The integration is pinned to Claude Desktop `3.1623.0` (ported from `2.19675.0` on 2026-10-20); its hooks deliberately reject incompatible layouts.
 

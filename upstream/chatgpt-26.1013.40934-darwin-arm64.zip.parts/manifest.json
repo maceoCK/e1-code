@@ -1,0 +1,47 @@
+{
+  "name": "ChatGPT-26.1013.40934-darwin-arm64.zip",
+  "totalBytes": 725434481,
+  "totalSha256": "e82f46d3d9183134e2449d4cdcb49a135e952599db47ec36c6fe0c969a78c5da",
+  "parts": [
+    {
+      "file": "part-01",
+      "sha256": "98bb6b4eec73ba4a1835b1ce23d4d0bd5e7a135e90e1e8d08676b4d4ed292a1e",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-02",
+      "sha256": "6d985acfdeeb22de4a4311ed9b2d3e5c7823a6f05eebb6c8ddeab064a7d44e56",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-03",
+      "sha256": "5c4c9a10f4a2c2f927522070b371d9ef3437ff65537cc92996e46d95f33718cf",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-04",
+      "sha256": "7f15186dda1a164659e968f5352f1660c784d89837c002bebf6cefd6503068e3",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-05",
+      "sha256": "e2ed7996123cf3a843f54606c92fac67da348c613ade835c256dde8959373a1b",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-06",
+      "sha256": "95443748ef09542b334f90ef63da65eeb83b82d2e3282f7e171d335508f2f39b",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-07",
+      "sha256": "452af39cffab9f1ef0806a59e70a89c64de1b9bbf6658677e6122588d27c4ba1",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-08",
+      "sha256": "9842a627da2336209f0cbfab4f274c47f1b22a12ff311f8f52edac21fcdb22e7",
+      "bytes": 28131441
+    }
+  ]
+}

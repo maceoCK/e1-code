@@ -2,22 +2,25 @@
 // releases, and the pinned CLIProxyAPI runtime (third_party/upstream.json).
 //
 // Sources, in order (E1_UPSTREAM_SOURCE=auto):
+//   committed  the hash-checked split archives committed under upstream/,
+//              so a fresh clone builds without network or a gh login
 //   installed  a matching local install (/Applications)
-//   release    this private repository's release assets, via your gh login
+//   release    this repository's release assets, via your gh login
 //   download   the vendors' official download URLs
 // Whatever the source, an app must pass the same checks before use: valid
 // Developer ID signature from the pinned team, bundle id, version, and the
-// signed ElectronAsarIntegrity hash of its app.asar. Release assets are also
-// pinned by SHA-256. Prepared inputs live in the gitignored captures/.
+// signed ElectronAsarIntegrity hash of its app.asar. Committed parts and
+// release assets are also pinned by SHA-256. Prepared inputs live in the
+// gitignored captures/.
 //
-//   node scripts/prepare-upstream.cjs [claude] [chatgpt] [cliproxyapi] [--source=auto|installed|release|download]
+//   node scripts/prepare-upstream.cjs [claude] [chatgpt] [cliproxyapi] [--source=auto|committed|installed|release|download]
 //
 // E1_UPSTREAM_APP_<KEY> points at another local copy of an app;
 // E1_UPSTREAM_URL_<KEY> at a mirror of its official zip.
-const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process'), crypto = require('node:crypto');
+const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process'), crypto = require('node:crypto'), os = require('node:os');
 const root = path.resolve(__dirname, '..');
 const pins = require('../third_party/upstream.json');
-const sources = { auto: ['installed', 'release', 'download'], installed: ['installed'], release: ['release'], download: ['download'] };
+const sources = { auto: ['committed', 'installed', 'release', 'download'], committed: ['committed'], installed: ['installed'], release: ['release'], download: ['download'] };
 const sha256 = data => crypto.createHash('sha256').update(data).digest('hex');
 function sha256File(file) {
   const hash = crypto.createHash('sha256'), buffer = Buffer.alloc(8 * 1048576), fd = fs.openSync(file, 'r');
@@ -91,6 +94,37 @@ function releaseAsset(key, log) {
   return file;
 }
 
+// A vendor archive committed to this repository as hash-checked parts under
+// upstream/, so a fresh clone can build without network access or a gh login.
+// Each .parts/ directory holds a manifest.json with the exact bytes and
+// SHA-256 of every part and of the assembled archive. Returns null when the
+// parts are not committed; any mismatch is an error.
+function committedAsset(key) {
+  const asset = pins.release?.assets?.[key];
+  if (!asset) return null;
+  const dir = path.join(root, 'upstream', `${asset.name}.parts`), manifestPath = path.join(dir, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) return null;
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (manifest.name !== asset.name || manifest.totalSha256 !== asset.sha256) throw Error(`${asset.name} parts do not match the pinned SHA-256 in third_party/upstream.json.`);
+  const assembled = path.join(downloads, asset.name);
+  if (fs.existsSync(assembled) && sha256File(assembled) === asset.sha256) return assembled;
+  fs.mkdirSync(downloads, { recursive: true });
+  const expected = manifest.parts.map(part => part.bytes).reduce((a, b) => a + b, 0);
+  if (expected !== manifest.totalBytes) throw Error(`${asset.name} part sizes do not add up to the manifest total.`);
+  const out = fs.openSync(assembled + '.part', 'w');
+  try {
+    for (const part of manifest.parts) {
+      if (sha256File(path.join(dir, part.file)) !== part.sha256) throw Error(`${dir}/${part.file} does not match its manifest SHA-256.`);
+      const fd = fs.openSync(path.join(dir, part.file), 'r'), buffer = Buffer.alloc(1024 * 1024);
+      try { for (let read; (read = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0;) fs.writeSync(out, buffer.subarray(0, read)); }
+      finally { fs.closeSync(fd); }
+    }
+  } finally { fs.closeSync(out); }
+  if (sha256File(assembled + '.part') !== manifest.totalSha256) { fs.rmSync(assembled + '.part', { force: true }); throw Error(`Assembled ${asset.name} does not match the pinned SHA-256.`); }
+  fs.renameSync(assembled + '.part', assembled);
+  return assembled;
+}
+
 function layoutComplete(key, capture) {
   const required = key === 'claude'
     ? ['full/original/Claude.app/Contents/Info.plist', 'full/original/Claude.app/Contents/Resources/ion-dist/index.html', 'extracted/app/package.json']
@@ -119,7 +153,11 @@ async function prepareApp(key, { source = process.env.E1_UPSTREAM_SOURCE || 'aut
         continue;
       }
       let zip;
-      if (candidate === 'release') {
+      if (candidate === 'committed') {
+        zip = committedAsset(key);
+        if (!zip) continue;
+        origin = `committed parts in this repository (upstream/)`;
+      } else if (candidate === 'release') {
         zip = releaseAsset(key, log);
         if (!zip) continue;
         origin = `${pins.release.repo} release ${pins.release.tag}`;
@@ -133,7 +171,11 @@ async function prepareApp(key, { source = process.env.E1_UPSTREAM_SOURCE || 'aut
         origin = url;
       }
       fs.mkdirSync(downloads, { recursive: true });
-      scratch = fs.mkdtempSync(path.join(downloads, 'unpack-'));
+      // Extract under the OS temp directory, outside any iCloud-synced folder:
+      // macOS attaches com.apple.FinderInfo to .app bundles created under
+      // ~/Documents, and codesign --strict rejects the bundle for that detritus
+      // even though the archive bytes are unchanged.
+      scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'e1-unpack-'));
       run('/usr/bin/ditto', ['-x', '-k', zip, scratch]);
       const bundles = fs.readdirSync(scratch).filter(name => name.endsWith('.app'));
       if (bundles.length !== 1) throw Error(`${label}: expected one app in ${path.basename(zip)}, found ${bundles.length}.`);
@@ -167,7 +209,15 @@ async function prepareProxy({ source = process.env.E1_UPSTREAM_SOURCE || 'auto',
   const directory = path.join(root, 'third_party/cliproxyapi'), binary = path.join(directory, 'cli-proxy-api');
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   if (fs.existsSync(binary) && sha256File(binary) === manifest.binarySha256) return binary;
-  if (!sources[source]) throw Error('Upstream source must be auto, installed, release or download.');
+  if (!sources[source]) throw Error('Upstream source must be auto, committed, installed, release or download.');
+  if (sources[source].includes('committed')) {
+    const committed = committedAsset('cliproxyapi');
+    if (committed) {
+      if (sha256File(committed) !== manifest.binarySha256) throw Error('CLIProxyAPI committed parts do not match manifest.json.');
+      fs.copyFileSync(committed, binary); fs.chmodSync(binary, 0o755);
+      return binary;
+    }
+  }
   if (sources[source].includes('release')) {
     const asset = releaseAsset('cliproxyapi', log);
     if (asset) {

@@ -1,0 +1,22 @@
+{
+  "name": "Claude-3.1623.0-darwin-arm64.zip",
+  "totalBytes": 265258394,
+  "totalSha256": "920d353b4ae46ea3b332bec52c0868dd8a4aeece0c62ed6e648111e9bbfa67b2",
+  "parts": [
+    {
+      "file": "part-01",
+      "sha256": "74566822aa333fd9018f5d8137cf3b0f532c2d763a72ea854d465b6040bf6d89",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-02",
+      "sha256": "02456bb11bea1e682faa3fdf9dd573077a2734dade226531f2f23dee1a13d717",
+      "bytes": 99614720
+    },
+    {
+      "file": "part-03",
+      "sha256": "f378831933380672106c2e9e293003e41511b2a3fd4176637442d8cb381ba793",
+      "bytes": 66028954
+    }
+  ]
+}
